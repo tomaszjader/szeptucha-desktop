@@ -7,6 +7,7 @@ const {
   Tray,
   Menu,
   nativeImage,
+  screen,
   shell,
   clipboard,
 } = require("electron");
@@ -14,6 +15,7 @@ const path = require("path"),
   fs = require("fs"),
   { spawn } = require("child_process");
 let win,
+  recordingIndicator,
   tray,
   recording = false,
   pasteTranscription = false;
@@ -79,14 +81,90 @@ function createWindow() {
     }
   });
 }
+function createRecordingIndicator() {
+  recordingIndicator = new BrowserWindow({
+    width: 360,
+    height: 104,
+    frame: false,
+    resizable: false,
+    movable: false,
+    show: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    transparent: true,
+    focusable: false,
+    hasShadow: false,
+    backgroundColor: "#00000000",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  recordingIndicator.setAlwaysOnTop(true, "screen-saver");
+  recordingIndicator.setVisibleOnAllWorkspaces(true, {
+    visibleOnFullScreen: true,
+  });
+  recordingIndicator.setIgnoreMouseEvents(true);
+  recordingIndicator.loadURL(
+    "data:text/html;charset=utf-8," +
+      encodeURIComponent(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+html,body{margin:0;width:100%;height:100%;background:transparent;font-family:"Segoe UI",Arial,sans-serif;overflow:hidden}
+.wrap{height:100%;display:grid;place-items:center}
+.pill{width:326px;height:72px;border:1px solid rgba(234,223,226,.96);border-radius:18px;background:rgba(255,255,255,.94);box-shadow:0 18px 48px rgba(33,30,41,.28);display:flex;align-items:center;gap:15px;padding:0 18px;color:#2a2630}
+.dot{width:12px;height:12px;border-radius:50%;background:#d94848;box-shadow:0 0 0 7px rgba(217,72,72,.14);animation:blink 1s ease-in-out infinite}
+.text{min-width:0}
+b{display:block;font-size:14px;line-height:1.1}
+small{display:block;color:#746d7a;font-size:11px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wave{margin-left:auto;height:36px;display:flex;align-items:center;gap:4px}
+.wave span{width:5px;height:13px;border-radius:99px;background:linear-gradient(180deg,#ee7777,#8954cf);animation:wave .95s ease-in-out infinite}
+.wave span:nth-child(2){animation-delay:.1s}.wave span:nth-child(3){animation-delay:.2s}.wave span:nth-child(4){animation-delay:.3s}.wave span:nth-child(5){animation-delay:.4s}
+@keyframes wave{0%,100%{height:11px;opacity:.72}50%{height:34px;opacity:1}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.45}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="pill">
+    <span class="dot"></span>
+    <div class="text"><b>Nagrywanie aktywne</b><small>Uzyj skrotu ponownie, aby zakonczyc</small></div>
+    <div class="wave"><span></span><span></span><span></span><span></span><span></span></div>
+  </div>
+</div>
+</body>
+</html>`),
+  );
+}
+function showRecordingIndicator(active) {
+  if (!recordingIndicator || recordingIndicator.isDestroyed()) return;
+  if (!active) {
+    recordingIndicator.hide();
+    return;
+  }
+  const area = screen.getPrimaryDisplay().workArea;
+  recordingIndicator.setPosition(
+    Math.round(area.x + area.width / 2 - 180),
+    area.y + area.height - 128,
+    false,
+  );
+  recordingIndicator.showInactive();
+}
+function setRecordingState(active) {
+  recording = active;
+  showRecordingIndicator(active);
+  win?.webContents.send("recording:toggle", active);
+}
 function shortcuts() {
   globalShortcut.unregisterAll();
   const s = settings();
   try {
     globalShortcut.register(s.recordHotkey, () => {
       if (!recording) pasteTranscription = true;
-      recording = !recording;
-      win?.webContents.send("recording:toggle", recording);
+      setRecordingState(!recording);
     });
   } catch {}
   try {
@@ -105,9 +183,7 @@ function trayMenu() {
       {
         label: "Nagraj notatkę",
         click: () => {
-          recording = !recording;
-          win.webContents.send("recording:toggle", recording);
-          win.show();
+          setRecordingState(!recording);
         },
       },
       { type: "separator" },
@@ -275,6 +351,7 @@ async function transcribe(buf, mime) {
 }
 app.whenReady().then(() => {
   createWindow();
+  createRecordingIndicator();
   trayMenu();
   shortcuts();
 });
@@ -315,7 +392,10 @@ ipcMain.handle("transcription:save", (_, text) => {
   return { text, path: file };
 });
 ipcMain.handle("text:correct", () => correctText());
-ipcMain.on("recording:state", (_, v) => (recording = v));
+ipcMain.on("recording:state", (_, v) => {
+  recording = v;
+  showRecordingIndicator(v);
+});
 ipcMain.on("transcription:status", (_, message) => status("info", message));
 ipcMain.handle("transcription:paste", async (_, text) => {
   if (!pasteTranscription) return false;
@@ -329,5 +409,6 @@ ipcMain.handle("transcription:paste", async (_, text) => {
 ipcMain.on("recording:error", (_, m) => {
   recording = false;
   pasteTranscription = false;
+  showRecordingIndicator(false);
   status("error", m);
 });

@@ -57,10 +57,21 @@ function App() {
     const folder = await window.szeptucha.chooseFolder();
     if (folder) save({ ...s, folder });
   };
-  const toggle = async () =>
-    recording
-      ? window.szeptucha.stopRecording(new ArrayBuffer(0), "")
-      : window.szeptucha.startRecording();
+  const toggle = async () => {
+    try {
+      if (recording) {
+        setRecording(false);
+        await window.szeptucha.stopRecording(new ArrayBuffer(0), "");
+      } else {
+        setRecording(true);
+        await window.szeptucha.startRecording();
+      }
+    } catch (e) {
+      setRecording(false);
+      setToast(e instanceof Error ? e.message : "Nie udało się nagrywać");
+      setTimeout(() => setToast(""), 4500);
+    }
+  };
   if (!ready) return <div className="loading">Szeptucha budzi się…</div>;
   return (
     <main>
