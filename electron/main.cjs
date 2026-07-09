@@ -145,7 +145,9 @@ function showRecordingIndicator(active) {
     recordingIndicator.hide();
     return;
   }
-  const area = screen.getPrimaryDisplay().workArea;
+  const cursorPos = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(cursorPos);
+  const area = display.workArea;
   recordingIndicator.setPosition(
     Math.round(area.x + area.width / 2 - 180),
     area.y + area.height - 128,
