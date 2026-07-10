@@ -12,6 +12,8 @@ import {
   AudioLines,
   Eye,
   EyeOff,
+  Moon,
+  Sun,
 } from "lucide-react";
 import "./styles.css";
 
@@ -27,11 +29,22 @@ const defaults: Settings = {
   language: "pl",
 };
 function App() {
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const saved = localStorage.getItem("szeptucha-theme");
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
   const [s, setS] = useState<Settings>(defaults),
     [recording, setRecording] = useState(false),
     [showKey, setShowKey] = useState(false),
     [toast, setToast] = useState(""),
     [ready, setReady] = useState(false);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    localStorage.setItem("szeptucha-theme", theme);
+    window.szeptucha.setTheme(theme);
+  }, [theme]);
   useEffect(() => {
     window.szeptucha.getSettings().then((x) => {
       setS(x);
@@ -117,10 +130,15 @@ function App() {
             <h1>Dzień dobry 👋</h1>
             <p>Nagraj myśl. Szeptucha zajmie się resztą.</p>
           </div>
-          <span className={"status " + (s.apiKey ? "ok" : "")}>
-            <i />
-            {s.apiKey ? "AI gotowe" : "Wymagany klucz API"}
-          </span>
+          <div className="headerActions">
+            <button className="themeToggle" onClick={() => setTheme(theme === "light" ? "dark" : "light")} aria-label={theme === "light" ? "Włącz ciemny motyw" : "Włącz jasny motyw"} title={theme === "light" ? "Ciemny motyw" : "Jasny motyw"}>
+              {theme === "light" ? <Moon /> : <Sun />}
+            </button>
+            <span className={"status " + (s.apiKey ? "ok" : "")}>
+              <i />
+              {s.apiKey ? "AI gotowe" : "Wymagany klucz API"}
+            </span>
+          </div>
         </header>
         <div className={"recorder " + (recording ? "recording" : "")}>
           <div className="orb">

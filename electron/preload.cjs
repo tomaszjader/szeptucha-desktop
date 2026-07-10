@@ -67,6 +67,7 @@ function stop() {
   });
 }
 contextBridge.exposeInMainWorld("szeptucha", {
+  setTheme: (theme) => ipcRenderer.send("theme:set", theme),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   saveSettings: (s) => ipcRenderer.invoke("settings:save", s),
   chooseFolder: () => ipcRenderer.invoke("folder:choose"),

@@ -116,10 +116,12 @@ function createRecordingIndicator() {
 html,body{margin:0;width:100%;height:100%;background:transparent;font-family:"Segoe UI",Arial,sans-serif;overflow:hidden}
 .wrap{height:100%;display:grid;place-items:center}
 .pill{width:326px;height:72px;border:1px solid rgba(234,223,226,.96);border-radius:18px;background:rgba(255,255,255,.94);box-shadow:0 18px 48px rgba(33,30,41,.28);display:flex;align-items:center;gap:15px;padding:0 18px;color:#2a2630}
+html[data-theme="dark"] .pill{border-color:rgba(62,56,70,.96);background:rgba(33,30,40,.96);box-shadow:0 18px 48px rgba(0,0,0,.5);color:#eeeaf3}
 .dot{width:12px;height:12px;border-radius:50%;background:#d94848;box-shadow:0 0 0 7px rgba(217,72,72,.14);animation:blink 1s ease-in-out infinite}
 .text{min-width:0}
 b{display:block;font-size:14px;line-height:1.1}
 small{display:block;color:#746d7a;font-size:11px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html[data-theme="dark"] small{color:#aaa3b2}
 .wave{margin-left:auto;height:36px;display:flex;align-items:center;gap:4px}
 .wave span{width:5px;height:13px;border-radius:99px;background:linear-gradient(180deg,#ee7777,#8954cf);animation:wave .95s ease-in-out infinite}
 .wave span:nth-child(2){animation-delay:.1s}.wave span:nth-child(3){animation-delay:.2s}.wave span:nth-child(4){animation-delay:.3s}.wave span:nth-child(5){animation-delay:.4s}
@@ -359,6 +361,13 @@ app.whenReady().then(() => {
 });
 app.on("window-all-closed", () => {});
 app.on("will-quit", () => globalShortcut.unregisterAll());
+ipcMain.on("theme:set", (_, theme) => {
+  if (!recordingIndicator || recordingIndicator.isDestroyed()) return;
+  const safeTheme = theme === "dark" ? "dark" : "light";
+  recordingIndicator.webContents.executeJavaScript(
+    `document.documentElement.dataset.theme = ${JSON.stringify(safeTheme)}`,
+  );
+});
 ipcMain.handle("settings:get", () => settings());
 ipcMain.handle("settings:save", (_, s) => {
   save(s);
