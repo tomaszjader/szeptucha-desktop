@@ -1,148 +1,149 @@
 # Szeptucha Desktop
 
-Szeptucha to aplikacja desktopowa dla Windows do szybkiego tworzenia notatek glosowych i poprawiania zaznaczonego tekstu z pomoca AI. Dziala jako aplikacja Electron z interfejsem React/Vite, ma ikone w zasobniku systemowym, globalne skroty klawiaturowe i zapisuje transkrypcje lokalnie na dysku.
+Szeptucha to aplikacja desktopowa dla Windows, która zamienia nagrania z mikrofonu w notatki i poprawia zaznaczony tekst z pomocą AI. Może transkrybować dźwięk lokalnie, bez klucza API, albo korzystać z OpenAI lub Google Gemini. Działa w tle, udostępnia globalne skróty klawiaturowe i zapisuje każdą transkrypcję na dysku.
 
-## Najwazniejsze funkcje
+Aktualna wersja: **0.1.0**.
 
-- nagrywanie notatek glosowych z mikrofonu,
-- transkrypcja lokalna przez Whisper Tiny z `@huggingface/transformers`,
-- opcjonalna transkrypcja przez OpenAI albo Google Gemini,
-- automatyczny zapis notatek w formatach `.md`, `.txt` albo `.json`,
-- globalny skrot do nagrywania: domyslnie `Ctrl+Shift+R`,
-- globalny skrot do korekty tekstu: domyslnie `Ctrl+Q`,
-- poprawianie zaznaczonego tekstu w dowolnej aplikacji,
-- wklejanie wyniku transkrypcji po zakonczeniu nagrywania uruchomionego skrotem,
-- konfiguracja folderu zapisu, dostawcy AI, klucza API i uruchamiania wraz z systemem,
-- dzialanie w tle przez tray systemowy.
+## Funkcje
 
-## Stos technologiczny
+- nagrywanie dźwięku z poziomu aplikacji, zasobnika systemowego lub globalnego skrótu,
+- lokalna transkrypcja przez Whisper Tiny (`onnx-community/whisper-tiny`),
+- transkrypcja w chmurze przez OpenAI lub Google Gemini,
+- automatyczny fallback do lokalnego Whispera, gdy nie podano klucza API,
+- automatyczny zapis notatek jako Markdown (`.md`), zwykły tekst (`.txt`) lub JSON (`.json`),
+- wklejanie gotowej transkrypcji do aktywnej aplikacji, jeśli nagrywanie rozpoczęto globalnym skrótem,
+- korekta zaznaczonego tekstu w dowolnej aplikacji przez OpenAI lub Gemini,
+- pływający wskaźnik aktywnego nagrywania, wyświetlany na monitorze z kursorem,
+- jasny i ciemny motyw, dobierany początkowo do ustawień systemu,
+- praca w tle przez ikonę w zasobniku systemowym,
+- opcjonalne uruchamianie razem z systemem Windows.
 
-- Electron - warstwa desktopowa, tray, globalne skroty, schowek i komunikacja z systemem,
-- React - interfejs aplikacji,
-- Vite - bundling i serwer developerski,
-- TypeScript - typowanie kodu frontendu,
-- `@huggingface/transformers` - lokalna transkrypcja Whisper,
-- Electron Builder - budowanie instalatora Windows.
+## Jak korzystać
+
+### Nagrywanie i transkrypcja
+
+1. Kliknij mikrofon w aplikacji albo użyj skrótu `Ctrl+Shift+R`.
+2. Nagraj notatkę. Podczas nagrywania u dołu ekranu pojawi się pływający wskaźnik.
+3. Kliknij ponownie mikrofon albo ponownie użyj skrótu, aby zakończyć nagrywanie.
+4. Transkrypcja zostanie zapisana w wybranym folderze.
+
+Nagranie rozpoczęte globalnym skrótem jest po transkrypcji dodatkowo wklejane w miejsce, które było aktywne podczas pracy. Nagranie uruchomione przyciskiem w aplikacji lub z menu zasobnika jest tylko zapisywane do pliku.
+
+Domyślny skrót nagrywania: `Ctrl+Shift+R`.
+
+### Korekta zaznaczonego tekstu
+
+1. Wybierz OpenAI albo Gemini i zapisz właściwy klucz API.
+2. Zaznacz tekst w dowolnej aplikacji.
+3. Naciśnij `Ctrl+Q` albo kliknij „Popraw zaznaczony tekst”.
+
+Szeptucha kopiuje zaznaczenie, poprawia literówki, ortografię, interpunkcję i oczywiste błędy gramatyczne, a następnie wkleja wynik. Ta funkcja nie jest dostępna w pełni lokalnie i wymaga klucza API.
+
+Domyślny skrót korekty: `Ctrl+Q`.
+
+### Praca w tle
+
+Zamknięcie głównego okna ukrywa aplikację zamiast ją wyłączać. Z menu ikony w zasobniku można otworzyć okno, rozpocząć lub zakończyć nagrywanie oraz całkowicie zamknąć Szeptuchę. Dwukrotne kliknięcie ikony ponownie otwiera okno.
+
+## Silniki transkrypcji
+
+| Silnik | Model domyślny | Klucz API | Przetwarzanie |
+| --- | --- | --- | --- |
+| Lokalny Whisper | `onnx-community/whisper-tiny` | nie | na komputerze użytkownika |
+| OpenAI | `gpt-4o-mini-transcribe` | tak | w API OpenAI |
+| Google Gemini | `gemini-2.0-flash` | tak | w API Google |
+
+Model lokalny jest pobierany przy pierwszym użyciu, dlatego pierwsza transkrypcja może potrwać dłużej. Jeśli dla OpenAI lub Gemini nie zapisano klucza API, nagranie zostanie automatycznie przetworzone lokalnie.
+
+Korekta tekstu korzysta z `gpt-4o-mini` dla OpenAI albo z wybranego modelu Gemini.
+
+## Ustawienia
+
+W aplikacji można skonfigurować:
+
+- silnik transkrypcji: lokalny Whisper, OpenAI albo Gemini,
+- klucz API dla usług chmurowych,
+- format zapisywanych notatek,
+- folder docelowy,
+- skrót nagrywania,
+- skrót korekty tekstu,
+- uruchamianie wraz z systemem Windows,
+- jasny lub ciemny motyw.
+
+Domyślnym miejscem zapisu jest folder `Szeptucha` w katalogu Dokumenty użytkownika. Pliki otrzymują nazwę `notatka-<data-i-czas>.<format>`.
+
+Ustawienia są przechowywane w pliku `settings.json` w katalogu danych aplikacji Electron. Wybrany motyw jest zapisywany osobno w lokalnej pamięci interfejsu.
 
 ## Wymagania
 
-- Node.js,
-- npm,
 - Windows,
-- dostep do mikrofonu,
-- opcjonalnie klucz API OpenAI albo Google Gemini, jezeli chcesz korzystac z chmurowej transkrypcji lub korekty tekstu.
+- dostęp do mikrofonu,
+- Node.js i npm — tylko do uruchamiania projektu ze źródeł,
+- klucz API OpenAI albo Google Gemini — tylko do transkrypcji chmurowej i korekty tekstu.
 
-## Instalacja
+## Instalacja i rozwój
+
+Zainstaluj zależności:
 
 ```powershell
 npm install
 ```
 
-## Tryb developerski
+Uruchom aplikację w trybie developerskim:
 
 ```powershell
 npm run dev
 ```
 
-Ten skrypt uruchamia jednoczesnie serwer Vite oraz aplikacje Electron. Electron czeka, az frontend bedzie dostepny pod `http://localhost:5173`.
+Polecenie uruchamia serwer Vite pod adresem `http://localhost:5173` i aplikację Electron.
 
-## Budowanie aplikacji
-
-```powershell
-npm run build
-```
-
-Polecenie wykonuje:
-
-1. kompilacje TypeScript,
-2. build frontendu Vite do folderu `dist`,
-3. przygotowanie instalatora Windows przez Electron Builder.
-
-Gotowe artefakty trafiaja do folderu `release`. Nazwa instalatora ma format:
-
-```text
-Szeptucha-Setup-<wersja>.exe
-```
-
-Mozesz tez zbudowac sam frontend:
-
-```powershell
-npm run build:web
-```
-
-## Uruchomienie gotowej aplikacji z repozytorium
+Uruchom wcześniej zbudowaną aplikację bez serwera developerskiego:
 
 ```powershell
 npm start
 ```
 
-## Konfiguracja w aplikacji
+## Budowanie
 
-W panelu ustawien mozna wybrac:
+Pełny build aplikacji i instalatora Windows:
 
-- silnik transkrypcji: lokalny Whisper, OpenAI albo Gemini,
-- format zapisu notatek,
-- folder docelowy dla transkrypcji,
-- klucz API,
-- skrot nagrywania,
-- skrot korekty,
-- uruchamianie aplikacji wraz z systemem Windows.
+```powershell
+npm run build
+```
 
-Ustawienia sa zapisywane lokalnie w katalogu danych aplikacji Electron jako `settings.json`.
+Skrypt wykonuje kontrolę TypeScript, buduje frontend do `dist` i tworzy instalator NSIS w folderze `release`. Plik instalatora ma nazwę `Szeptucha-Setup-<wersja>.exe` i pozwala wybrać katalog instalacji; tworzy też skróty na pulpicie i w menu Start.
 
-## Dostawcy transkrypcji i AI
+Build samego frontendu:
 
-### Lokalnie
-
-Tryb lokalny nie wymaga klucza API. Aplikacja uzywa modelu `onnx-community/whisper-tiny` przez `@huggingface/transformers`.
-
-### OpenAI
-
-Domyslny model transkrypcji to `gpt-4o-mini-transcribe`, a korekta tekstu korzysta z modelu `gpt-4o-mini`.
-
-### Google Gemini
-
-Domyslny model to `gemini-2.0-flash`.
+```powershell
+npm run build:web
+```
 
 ## Struktura projektu
 
 ```text
 .
-|-- assets/             # ikony aplikacji
+|-- assets/             # ikony aplikacji i instalatora
 |-- electron/
-|   |-- main.cjs        # proces glowny Electron: okno, tray, skroty, API, zapis plikow
-|   `-- preload.cjs     # bezpieczny most IPC dla frontendu i obsluga nagrywania
+|   |-- main.cjs        # okna, tray, skróty, API, schowek i zapis plików
+|   `-- preload.cjs     # nagrywanie, lokalny Whisper i bezpieczny most IPC
 |-- src/
-|   |-- main.tsx        # aplikacja React
-|   |-- styles.css      # style interfejsu
-|   `-- vite-env.d.ts   # typy API wystawianego przez preload
-|-- index.html          # punkt wejscia Vite
-|-- package.json        # skrypty, zaleznosci i konfiguracja electron-builder
+|   |-- main.tsx        # interfejs React i ustawienia
+|   |-- styles.css      # style oraz jasny i ciemny motyw
+|   `-- vite-env.d.ts   # typy API udostępnianego przez preload
+|-- index.html          # punkt wejścia Vite
+|-- package.json        # skrypty, zależności i konfiguracja electron-builder
 |-- tsconfig.json       # konfiguracja TypeScript
 `-- vite.config.ts      # konfiguracja Vite
 ```
 
-## Jak dziala aplikacja
+## Prywatność
 
-Frontend React odpowiada za ekran nagrywania i ustawienia. Kod w `preload.cjs` udostepnia do frontendu obiekt `window.szeptucha`, ktory pozwala nagrywac audio, zatrzymywac nagranie, zapisywac ustawienia i odbierac statusy. Proces glowny Electron w `main.cjs` obsluguje zapis plikow, tray, globalne skroty, komunikacje z API OpenAI/Gemini, schowek oraz wysylanie skrotow klawiaturowych do systemu.
-
-Po nagraniu dzwiek jest transkrybowany lokalnie albo wysylany do wybranego dostawcy AI. Wynik trafia do wybranego folderu jako notatka. Jezeli nagrywanie zostalo uruchomione globalnym skrotem, aplikacja moze dodatkowo wkleic transkrypcje do aktywnego miejsca pracy.
-
-## Prywatnosc
-
-- Klucz API jest przechowywany lokalnie na komputerze uzytkownika.
-- Tryb lokalny nie wymaga wysylania nagrania do zewnetrznego API.
-- W trybie OpenAI albo Gemini nagranie lub tekst jest wysylany do wybranego dostawcy w celu transkrypcji albo korekty.
-
-## Przydatne skrypty
-
-```powershell
-npm run dev       # aplikacja w trybie developerskim
-npm run build     # pelny build aplikacji desktopowej
-npm run build:web # build samego frontendu
-npm start         # uruchomienie Electron
-```
+- klucz API i ustawienia są przechowywane lokalnie na komputerze,
+- lokalny Whisper nie wysyła nagrania do zewnętrznego API,
+- przy korzystaniu z OpenAI lub Gemini nagranie albo tekst trafia do wybranego dostawcy w celu przetworzenia,
+- transkrypcje są zapisywane lokalnie w skonfigurowanym folderze.
 
 ## Licencja
 
-Projekt jest oznaczony jako prywatny w `package.json`.
+Projekt jest prywatny (`"private": true` w `package.json`) i nie zawiera obecnie osobnego pliku licencji.
