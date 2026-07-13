@@ -250,7 +250,12 @@ function App() {
                   placeholder="Wklej klucz API"
                   onChange={(e) => setS({ ...s, apiKey: e.target.value })}
                 />
-                <button onClick={() => setShowKey(!showKey)}>
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  aria-label={showKey ? "Ukryj klucz API" : "Pokaż klucz API"}
+                  title={showKey ? "Ukryj klucz API" : "Pokaż klucz API"}
+                >
                   {showKey ? <EyeOff /> : <Eye />}
                 </button>
               </div>
