@@ -30,6 +30,8 @@ const defaults = {
   correctHotkey: "CommandOrControl+Q",
   launchAtStartup: false,
   language: "pl",
+  saveFromInterface: true,
+  saveFromShortcut: true,
 };
 function settings() {
   try {
@@ -45,6 +47,25 @@ function save(s) {
   fs.mkdirSync(path.dirname(configPath()), { recursive: true });
   fs.writeFileSync(configPath(), JSON.stringify(s, null, 2));
   return s;
+}
+function saveTranscription(text, s) {
+  const shouldSave = pasteTranscription
+    ? s.saveFromShortcut
+    : s.saveFromInterface;
+  if (!shouldSave) {
+    status("success", "Transkrypcja gotowa (bez zapisu do pliku)");
+    return { text, path: "" };
+  }
+  fs.mkdirSync(s.folder, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const file = path.join(s.folder, `notatka-${stamp}.${s.format}`);
+  let content = text;
+  if (s.format === "md") content = `# Notatka głosowa\n\n${text}\n`;
+  if (s.format === "json")
+    content = JSON.stringify({ createdAt: new Date().toISOString(), text }, null, 2);
+  fs.writeFileSync(file, content, "utf8");
+  status("success", `Zapisano: ${path.basename(file)}`);
+  return { text, path: file };
 }
 function status(type, message) {
   win?.webContents.send("status", { type, message });
@@ -338,20 +359,7 @@ async function transcribe(buf, mime) {
       );
     text = (await r.json()).candidates[0].content.parts[0].text;
   }
-  fs.mkdirSync(s.folder, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-"),
-    file = path.join(s.folder, `notatka-${stamp}.${s.format}`);
-  let content = text;
-  if (s.format === "md") content = `# Notatka głosowa\n\n${text}\n`;
-  if (s.format === "json")
-    content = JSON.stringify(
-      { createdAt: new Date().toISOString(), text },
-      null,
-      2,
-    );
-  fs.writeFileSync(file, content, "utf8");
-  status("success", `Zapisano: ${path.basename(file)}`);
-  return { text, path: file };
+  return saveTranscription(text, s);
 }
 app.whenReady().then(() => {
   createWindow();
@@ -391,16 +399,7 @@ ipcMain.handle("folder:open", () => {
 ipcMain.handle("audio:transcribe", (_, b, m) => transcribe(b, m));
 ipcMain.handle("transcription:save", (_, text) => {
   const s = settings();
-  fs.mkdirSync(s.folder, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const file = path.join(s.folder, `notatka-${stamp}.${s.format}`);
-  let content = text;
-  if (s.format === "md") content = `# Notatka głosowa\n\n${text}\n`;
-  if (s.format === "json")
-    content = JSON.stringify({ createdAt: new Date().toISOString(), text }, null, 2);
-  fs.writeFileSync(file, content, "utf8");
-  status("success", `Zapisano: ${path.basename(file)}`);
-  return { text, path: file };
+  return saveTranscription(text, s);
 });
 ipcMain.handle("text:correct", () => correctText());
 ipcMain.on("recording:state", (_, v) => {

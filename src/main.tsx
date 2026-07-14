@@ -27,6 +27,8 @@ const defaults: Settings = {
   correctHotkey: "CommandOrControl+Q",
   launchAtStartup: false,
   language: "pl",
+  saveFromInterface: true,
+  saveFromShortcut: true,
 };
 function App() {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -286,6 +288,30 @@ function App() {
             <span />
             Uruchamiaj wraz z systemem Windows
           </label>
+          <fieldset className="saveOptions">
+            <legend>Automatyczny zapis notatek</legend>
+            <p>Zaznacz oba źródła, aby zapisywać każdą notatkę.</p>
+            <label>
+              <input
+                type="checkbox"
+                checked={s.saveFromInterface}
+                onChange={(e) =>
+                  setS({ ...s, saveFromInterface: e.target.checked })
+                }
+              />
+              Z interfejsu graficznego
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={s.saveFromShortcut}
+                onChange={(e) =>
+                  setS({ ...s, saveFromShortcut: e.target.checked })
+                }
+              />
+              Ze skrótu klawiszowego
+            </label>
+          </fieldset>
           <button className="primary" onClick={() => save()}>
             <Check />
             Zapisz ustawienia

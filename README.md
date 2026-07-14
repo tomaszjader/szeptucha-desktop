@@ -64,6 +64,7 @@ W aplikacji można skonfigurować:
 - silnik transkrypcji: lokalny Whisper, OpenAI albo Gemini,
 - klucz API dla usług chmurowych,
 - format zapisywanych notatek,
+- źródła automatycznego zapisu: interfejs graficzny i skrót klawiszowy (domyślnie oba),
 - folder docelowy,
 - skrót nagrywania,
 - skrót korekty tekstu,

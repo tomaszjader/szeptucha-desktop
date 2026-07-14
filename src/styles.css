@@ -552,6 +552,29 @@ select:focus {
 .toggle input:checked + span:after {
   left: 17px;
 }
+.saveOptions {
+  border: 1px solid #e4dfda;
+  border-radius: 12px;
+  margin: 0 0 18px;
+  padding: 14px 16px 15px;
+}
+.saveOptions legend { padding: 0 6px; font-size: 12px; font-weight: 700; }
+.saveOptions p { margin: 0 0 11px; color: #817987; font-size: 11px; }
+.saveOptions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 24px;
+  font-size: 12px;
+}
+.saveOptions input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #8153ca;
+}
+[data-theme="dark"] .saveOptions { border-color: #393440; }
+[data-theme="dark"] .saveOptions p { color: #aaa3b2; }
 .primary {
   border: 0;
   background: #7c4bc5;
