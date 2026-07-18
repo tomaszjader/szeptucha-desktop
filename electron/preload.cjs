@@ -3,8 +3,20 @@ let recorder,
   chunks = [],
   stream;
 let localTranscriber;
-async function transcribeLocally(blob, language) {
-  ipcRenderer.send("transcription:status", "Ładuję lokalny model Whisper…");
+
+const { preloadTranslations } = require("./translations.cjs");
+
+function getResolvedLang(settings) {
+  const langSetting = settings.appLanguage || "system";
+  if (langSetting === "system") {
+    return navigator.language.toLowerCase().startsWith("pl") ? "pl" : "en";
+  }
+  return langSetting;
+}
+
+async function transcribeLocally(blob, language, resolvedLang) {
+  const t = preloadTranslations[resolvedLang] || preloadTranslations.en;
+  ipcRenderer.send("transcription:status", t.loadingWhisper);
   const context = new AudioContext();
   const decoded = await context.decodeAudioData(await blob.arrayBuffer());
   const frames = Math.ceil(decoded.duration * 16000);
@@ -22,9 +34,9 @@ async function transcribeLocally(blob, language) {
       "onnx-community/whisper-tiny",
     );
   }
-  ipcRenderer.send("transcription:status", "Transkrybuję lokalnie…");
+  ipcRenderer.send("transcription:status", t.transcribingLocally);
   const result = await localTranscriber(rendered.getChannelData(0), {
-    language: language || "pl",
+    language: language && language !== "auto" ? language : null,
     task: "transcribe",
   });
   return ipcRenderer.invoke("transcription:save", result.text);
@@ -41,16 +53,20 @@ async function start() {
 }
 function stop() {
   return new Promise((resolve, reject) => {
-    if (!recorder) return reject(new Error("Nagrywanie nie jest aktywne"));
+    if (!recorder) {
+      const sysLang = navigator.language.toLowerCase().startsWith("pl") ? "pl" : "en";
+      return reject(new Error(sysLang === "pl" ? "Nagrywanie nie jest aktywne" : "Recording is not active"));
+    }
     recorder.onstop = async () => {
       try {
         const blob = new Blob(chunks, { type: recorder.mimeType });
         stream?.getTracks().forEach((t) => t.stop());
         recorder = null;
         const settings = await ipcRenderer.invoke("settings:get");
+        const resolvedLang = getResolvedLang(settings);
         const useLocal = settings.provider === "local" || !settings.apiKey;
         const result = useLocal
-          ? await transcribeLocally(blob, settings.language)
+          ? await transcribeLocally(blob, settings.language, resolvedLang)
           : await ipcRenderer.invoke(
               "audio:transcribe",
               await blob.arrayBuffer(),

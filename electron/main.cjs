@@ -20,6 +20,21 @@ let win,
   recording = false,
   pasteTranscription = false;
 const configPath = () => path.join(app.getPath("userData"), "settings.json");
+const { mainTranslations } = require("./translations.cjs");
+
+function getSystemLanguage() {
+  const locale = app.getLocale();
+  return locale && locale.toLowerCase().startsWith("pl") ? "pl" : "en";
+}
+
+function getLang(s) {
+  const langSetting = s.appLanguage || "system";
+  if (langSetting === "system") {
+    return getSystemLanguage();
+  }
+  return langSetting;
+}
+
 const defaults = {
   provider: "openai",
   apiKey: "",
@@ -29,9 +44,10 @@ const defaults = {
   recordHotkey: "CommandOrControl+Shift+R",
   correctHotkey: "CommandOrControl+Q",
   launchAtStartup: false,
-  language: "pl",
+  language: "auto",
   saveFromInterface: true,
   saveFromShortcut: true,
+  appLanguage: "system",
 };
 function settings() {
   try {
@@ -49,22 +65,26 @@ function save(s) {
   return s;
 }
 function saveTranscription(text, s) {
+  const lang = getLang(s);
+  const t = mainTranslations[lang] || mainTranslations.en;
+  
   const shouldSave = pasteTranscription
     ? s.saveFromShortcut
     : s.saveFromInterface;
   if (!shouldSave) {
-    status("success", "Transkrypcja gotowa (bez zapisu do pliku)");
+    status("success", t.statusReadyNoSave);
     return { text, path: "" };
   }
   fs.mkdirSync(s.folder, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const file = path.join(s.folder, `notatka-${stamp}.${s.format}`);
+  const prefix = t.noteFilePrefix;
+  const file = path.join(s.folder, `${prefix}-${stamp}.${s.format}`);
   let content = text;
-  if (s.format === "md") content = `# Notatka głosowa\n\n${text}\n`;
+  if (s.format === "md") content = `${t.noteDocHeader}\n\n${text}\n`;
   if (s.format === "json")
     content = JSON.stringify({ createdAt: new Date().toISOString(), text }, null, 2);
   fs.writeFileSync(file, content, "utf8");
-  status("success", `Zapisano: ${path.basename(file)}`);
+  status("success", `${t.statusSaved}: ${path.basename(file)}`);
   return { text, path: file };
 }
 function status(type, message) {
@@ -102,9 +122,25 @@ function createWindow() {
     }
   });
 }
+function updateRecordingIndicatorLang(s) {
+  if (!recordingIndicator || recordingIndicator.isDestroyed()) return;
+  const lang = getLang(s);
+  const t = mainTranslations[lang] || mainTranslations.en;
+  
+  recordingIndicator.webContents.executeJavaScript(`
+    const b = document.querySelector('.text b');
+    const small = document.querySelector('.text small');
+    if (b) b.textContent = ${JSON.stringify(t.recordingActive)};
+    if (small) small.textContent = ${JSON.stringify(t.recordingSub)};
+  `).catch(console.error);
+}
 function createRecordingIndicator() {
+  const s = settings();
+  const lang = getLang(s);
+  const t = mainTranslations[lang] || mainTranslations.en;
+
   recordingIndicator = new BrowserWindow({
-    width: 360,
+    width: 400,
     height: 104,
     frame: false,
     resizable: false,
@@ -136,8 +172,8 @@ function createRecordingIndicator() {
 <style>
 html,body{margin:0;width:100%;height:100%;background:transparent;font-family:"Segoe UI",Arial,sans-serif;overflow:hidden}
 .wrap{height:100%;display:grid;place-items:center}
-.pill{width:326px;height:72px;border:1px solid rgba(234,223,226,.96);border-radius:18px;background:rgba(255,255,255,.94);box-shadow:0 18px 48px rgba(33,30,41,.28);display:flex;align-items:center;gap:15px;padding:0 18px;color:#2a2630}
-html[data-theme="dark"] .pill{border-color:rgba(62,56,70,.96);background:rgba(33,30,40,.96);box-shadow:0 18px 48px rgba(0,0,0,.5);color:#eeeaf3}
+.pill{width:326px;height:72px;border:1px solid rgba(234,223,226,.96);border-radius:18px;background:rgba(255,255,255,.94);box-shadow:0 4px 12px rgba(33,30,41,.15);display:flex;align-items:center;gap:15px;padding:0 18px;color:#2a2630}
+html[data-theme="dark"] .pill{border-color:rgba(62,56,70,.96);background:rgba(33,30,40,.96);box-shadow:0 4px 12px rgba(0,0,0,.35);color:#eeeaf3}
 .dot{width:12px;height:12px;border-radius:50%;background:#d94848;box-shadow:0 0 0 7px rgba(217,72,72,.14);animation:blink 1s ease-in-out infinite}
 .text{min-width:0}
 b{display:block;font-size:14px;line-height:1.1}
@@ -154,7 +190,7 @@ html[data-theme="dark"] small{color:#aaa3b2}
 <div class="wrap">
   <div class="pill">
     <span class="dot"></span>
-    <div class="text"><b>Nagrywanie aktywne</b><small>Uzyj skrotu ponownie, aby zakonczyc</small></div>
+    <div class="text"><b>${t.recordingActive}</b><small>${t.recordingSub}</small></div>
     <div class="wave"><span></span><span></span><span></span><span></span><span></span></div>
   </div>
 </div>
@@ -168,11 +204,14 @@ function showRecordingIndicator(active) {
     recordingIndicator.hide();
     return;
   }
+  const s = settings();
+  updateRecordingIndicatorLang(s);
+
   const cursorPos = screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(cursorPos);
   const area = display.workArea;
   recordingIndicator.setPosition(
-    Math.round(area.x + area.width / 2 - 180),
+    Math.round(area.x + area.width / 2 - 200),
     area.y + area.height - 128,
     false,
   );
@@ -197,23 +236,29 @@ function shortcuts() {
   } catch {}
 }
 function trayMenu() {
-  const icon = nativeImage
-    .createFromPath(asset("icon.png"))
-    .resize({ width: 20, height: 20 });
-  tray = new Tray(icon);
+  const s = settings();
+  const lang = getLang(s);
+  const t = mainTranslations[lang] || mainTranslations.en;
+
+  if (!tray) {
+    const icon = nativeImage
+      .createFromPath(asset("icon.png"))
+      .resize({ width: 20, height: 20 });
+    tray = new Tray(icon);
+  }
   tray.setToolTip("Szeptucha");
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: "Otwórz Szeptuchę", click: () => win.show() },
+      { label: t.trayOpen, click: () => win.show() },
       {
-        label: "Nagraj notatkę",
+        label: t.trayRecord,
         click: () => {
           setRecordingState(!recording);
         },
       },
       { type: "separator" },
       {
-        label: "Zakończ",
+        label: t.trayExit,
         click: () => {
           app.isQuiting = true;
           app.quit();
@@ -224,9 +269,11 @@ function trayMenu() {
   tray.on("double-click", () => win.show());
 }
 async function aiCorrect(text, s) {
-  const prompt =
-    "Popraw wyłącznie literówki, błędy ortograficzne, interpunkcyjne i oczywiste błędy gramatyczne. Nie zmieniaj treści, znaczenia, tonu ani stylu. Zwróć tylko poprawiony tekst, bez komentarza.\n\n" +
-    text;
+  const lang = getLang(s);
+  const prompt = lang === "pl"
+    ? "Popraw wyłącznie literówki, błędy ortograficzne, interpunkcyjne i oczywiste błędy gramatyczne. Nie zmieniaj treści, znaczenia, tonu ani stylu. Zwróć tylko poprawiony tekst, bez komentarza.\n\n" + text
+    : "Correct only typos, spelling, punctuation, and obvious grammatical errors. Do not change the content, meaning, tone, or style. Return only the corrected text, without any comments.\n\n" + text;
+
   if (s.provider === "openai") {
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -241,7 +288,7 @@ async function aiCorrect(text, s) {
       }),
     });
     if (!r.ok)
-      throw new Error((await r.json()).error?.message || "Błąd OpenAI");
+      throw new Error((await r.json()).error?.message || (lang === "pl" ? "Błąd OpenAI" : "OpenAI error"));
     return (await r.json()).choices[0].message.content;
   }
   const model = s.model.startsWith("gemini") ? s.model : "gemini-2.0-flash";
@@ -256,44 +303,62 @@ async function aiCorrect(text, s) {
       }),
     },
   );
-  if (!r.ok) throw new Error((await r.json()).error?.message || "Błąd Gemini");
+  if (!r.ok) throw new Error((await r.json()).error?.message || (lang === "pl" ? "Błąd Gemini" : "Gemini error"));
   return (await r.json()).candidates[0].content.parts[0].text;
 }
-function keys(seq) {
+function keys(action) {
   return new Promise((resolve, reject) => {
-    const p = spawn(
-      "powershell",
-      [
-        "-NoProfile",
-        "-STA",
-        "-Command",
-        `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${seq}')`,
-      ],
-      { windowsHide: true },
-    );
-    p.on("exit", (c) =>
-      c ? reject(new Error("Nie udało się wysłać skrótu")) : resolve(),
-    );
+    if (process.platform === "win32") {
+      const seq = action === "copy" ? "^c" : "^v";
+      const p = spawn(
+        "powershell",
+        [
+          "-NoProfile",
+          "-STA",
+          "-Command",
+          `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${seq}')`,
+        ],
+        { windowsHide: true },
+      );
+      p.on("exit", (c) =>
+        c ? reject(new Error("Nie udało się wysłać skrótu")) : resolve(),
+      );
+    } else if (process.platform === "darwin") {
+      const keyChar = action === "copy" ? "c" : "v";
+      const script = `tell application "System Events" to keystroke "${keyChar}" using {command down}`;
+      const p = spawn("osascript", ["-e", script]);
+      p.on("exit", (c) =>
+        c ? reject(new Error("Failed to send shortcut")) : resolve(),
+      );
+    } else {
+      const keySeq = action === "copy" ? "ctrl+c" : "ctrl+v";
+      const p = spawn("xdotool", ["key", keySeq]);
+      p.on("exit", (c) =>
+        c ? reject(new Error("Failed to send shortcut - make sure xdotool is installed")) : resolve(),
+      );
+    }
   });
 }
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function correctText() {
   const s = settings();
+  const lang = getLang(s);
+  const t = mainTranslations[lang] || mainTranslations.en;
   if (!s.apiKey) {
-    status("error", "Najpierw podaj klucz API");
+    status("error", t.statusNoApiKey);
     win.show();
-    return { ok: false, message: "Brak klucza API" };
+    return { ok: false, message: t.statusNoApiKey };
   }
   try {
-    await keys("^c");
+    await keys("copy");
     await wait(250);
     const text = clipboard.readText();
-    if (!text.trim()) throw new Error("Zaznacz tekst do poprawienia");
-    status("info", "Poprawiam zaznaczony tekst…");
+    if (!text.trim()) throw new Error(t.statusSelectText);
+    status("info", t.statusCorrecting);
     const corrected = await aiCorrect(text, s);
     clipboard.writeText(corrected.trim());
-    await keys("^v");
-    status("success", "Tekst został poprawiony");
+    await keys("paste");
+    status("success", t.statusCorrected);
     return { ok: true, message: "Gotowe" };
   } catch (e) {
     status("error", e.message);
@@ -302,8 +367,10 @@ async function correctText() {
 }
 async function transcribe(buf, mime) {
   const s = settings();
-  if (!s.apiKey) throw new Error("Najpierw podaj klucz API w ustawieniach");
-  status("info", "Transkrybuję nagranie…");
+  const lang = getLang(s);
+  const t = mainTranslations[lang] || mainTranslations.en;
+  if (!s.apiKey) throw new Error(t.statusNoApiKeySettings);
+  status("info", t.statusTranscribing);
   let text;
   if (s.provider === "openai") {
     const form = new FormData();
@@ -316,7 +383,9 @@ async function transcribe(buf, mime) {
       "model",
       s.model.startsWith("gpt-") ? s.model : "gpt-4o-mini-transcribe",
     );
-    form.append("language", s.language);
+    if (s.language && s.language !== "auto") {
+      form.append("language", s.language);
+    }
     const r = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: { Authorization: `Bearer ${s.apiKey}` },
@@ -324,11 +393,22 @@ async function transcribe(buf, mime) {
     });
     if (!r.ok)
       throw new Error(
-        (await r.json()).error?.message || "Błąd transkrypcji OpenAI",
+        (await r.json()).error?.message || (lang === "pl" ? "Błąd transkrypcji OpenAI" : "OpenAI transcription error"),
       );
     text = (await r.json()).text;
   } else {
     const model = s.model.startsWith("gemini") ? s.model : "gemini-2.0-flash";
+    
+    // Resolve recording language
+    const recordingLang = s.language && s.language !== "auto" ? s.language : getSystemLanguage();
+    
+    let geminiInstruction;
+    if (recordingLang === "pl") {
+      geminiInstruction = "Dokładnie przepisz tę polską notatkę głosową. Zwróć tylko transkrypcję.";
+    } else {
+      geminiInstruction = "Accurately transcribe this English voice note. Return only the transcription.";
+    }
+
     const r = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${s.apiKey}`,
       {
@@ -339,7 +419,7 @@ async function transcribe(buf, mime) {
             {
               parts: [
                 {
-                  text: "Dokładnie przepisz tę polską notatkę głosową. Zwróć tylko transkrypcję.",
+                  text: geminiInstruction,
                 },
                 {
                   inline_data: {
@@ -355,7 +435,7 @@ async function transcribe(buf, mime) {
     );
     if (!r.ok)
       throw new Error(
-        (await r.json()).error?.message || "Błąd transkrypcji Gemini",
+        (await r.json()).error?.message || (lang === "pl" ? "Błąd transkrypcji Gemini" : "Gemini transcription error"),
       );
     text = (await r.json()).candidates[0].content.parts[0].text;
   }
@@ -381,6 +461,8 @@ ipcMain.handle("settings:save", (_, s) => {
   save(s);
   app.setLoginItemSettings({ openAtLogin: s.launchAtStartup });
   shortcuts();
+  trayMenu();
+  updateRecordingIndicatorLang(s);
   return s;
 });
 ipcMain.handle("folder:choose", async () => {
@@ -413,7 +495,11 @@ ipcMain.handle("transcription:paste", async (_, text) => {
   clipboard.writeText(String(text || "").trim());
   await wait(150);
   await keys("^v");
-  status("success", "Transkrypcja została wklejona");
+  
+  const s = settings();
+  const lang = getLang(s);
+  const t = mainTranslations[lang] || mainTranslations.en;
+  status("success", t.statusPasted);
   return true;
 });
 ipcMain.on("recording:error", (_, m) => {

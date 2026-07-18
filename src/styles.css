@@ -331,6 +331,7 @@ header p {
 }
 .recording .orb button {
   background: linear-gradient(145deg, #ec7474, #d84848);
+  box-shadow: 0 9px 26px rgba(216, 72, 72, 0.4);
 }
 @keyframes pulse {
   70% {
@@ -428,9 +429,12 @@ article,
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #6f6975;
+  flex: 1;
+  min-width: 0;
 }
 .folder button {
-  margin-left: auto;
+  margin-left: 12px;
+  flex-shrink: 0;
   border: 0;
   background: transparent;
   color: #8052c7;
@@ -724,7 +728,7 @@ select:focus {
   place-items: center;
   color: #8052c7;
 }
-@media (max-width: 850px) {
+@media (max-width: 1050px) {
   aside {
     width: 210px;
   }

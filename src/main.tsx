@@ -16,6 +16,7 @@ import {
   Sun,
 } from "lucide-react";
 import "./styles.css";
+import { translations } from "./translations";
 
 const defaults: Settings = {
   provider: "local",
@@ -26,9 +27,10 @@ const defaults: Settings = {
   recordHotkey: "CommandOrControl+Shift+R",
   correctHotkey: "CommandOrControl+Q",
   launchAtStartup: false,
-  language: "pl",
+  language: "auto",
   saveFromInterface: true,
   saveFromShortcut: true,
+  appLanguage: "system",
 };
 function App() {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -41,6 +43,11 @@ function App() {
     [showKey, setShowKey] = useState(false),
     [toast, setToast] = useState(""),
     [ready, setReady] = useState(false);
+
+  const systemLang = navigator.language.startsWith("pl") ? "pl" : "en";
+  const currentLang = !s.appLanguage || s.appLanguage === "system" ? systemLang : s.appLanguage;
+  const t = translations[currentLang];
+
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
@@ -65,7 +72,7 @@ function App() {
   const save = async (next = s) => {
     const saved = await window.szeptucha.saveSettings(next);
     setS(saved);
-    setToast("Ustawienia zapisane");
+    setToast(t.settingsSaved);
     setTimeout(() => setToast(""), 2500);
   };
   const choose = async () => {
@@ -83,11 +90,14 @@ function App() {
       }
     } catch (e) {
       setRecording(false);
-      setToast(e instanceof Error ? e.message : "Nie udało się nagrywać");
+      setToast(e instanceof Error ? e.message : t.failedToRecord);
       setTimeout(() => setToast(""), 4500);
     }
   };
-  if (!ready) return <div className="loading">Szeptucha budzi się…</div>;
+  if (!ready) {
+    const loadingText = systemLang === "pl" ? "Szeptucha budzi się…" : "Szeptucha is waking up…";
+    return <div className="loading">{loadingText}</div>;
+  }
   return (
     <main>
       <aside>
@@ -97,13 +107,13 @@ function App() {
           </div>
           <div>
             <b>Szeptucha</b>
-            <small>Głos zamieniony w słowa</small>
+            <small>{t.brandSubtitle}</small>
           </div>
         </div>
         <nav>
           <button className="active">
             <Mic />
-            Nagrywanie
+            {t.navRecording}
           </button>
           <button
             onClick={() =>
@@ -111,15 +121,15 @@ function App() {
             }
           >
             <SettingsIcon />
-            Ustawienia
+            {t.navSettings}
           </button>
         </nav>
         <div className="privacy">
           <ShieldCheck />
           <div>
-            <b>Twój klucz, Twoje dane</b>
+            <b>{t.privacyTitle}</b>
             <small>
-              Klucz API jest przechowywany lokalnie na tym komputerze.
+              {t.privacyText}
             </small>
           </div>
         </div>
@@ -128,17 +138,17 @@ function App() {
       <section className="content">
         <header>
           <div>
-            <p className="eyebrow">PULPIT</p>
-            <h1>Dzień dobry 👋</h1>
-            <p>Nagraj myśl. Szeptucha zajmie się resztą.</p>
+            <p className="eyebrow">{t.pulpit}</p>
+            <h1>{t.hello}</h1>
+            <p>{t.helloDesc}</p>
           </div>
           <div className="headerActions">
-            <button className="themeToggle" onClick={() => setTheme(theme === "light" ? "dark" : "light")} aria-label={theme === "light" ? "Włącz ciemny motyw" : "Włącz jasny motyw"} title={theme === "light" ? "Ciemny motyw" : "Jasny motyw"}>
+            <button className="themeToggle" onClick={() => setTheme(theme === "light" ? "dark" : "light")} aria-label={theme === "light" ? t.themeDark : t.themeLight} title={theme === "light" ? t.themeDarkTitle : t.themeLightTitle}>
               {theme === "light" ? <Moon /> : <Sun />}
             </button>
             <span className={"status " + (s.apiKey ? "ok" : "")}>
               <i />
-              {s.apiKey ? "AI gotowe" : "Wymagany klucz API"}
+              {s.apiKey ? t.aiReady : t.aiRequired}
             </span>
           </div>
         </header>
@@ -149,11 +159,11 @@ function App() {
               {recording ? <StopCircle /> : <Mic />}
             </button>
           </div>
-          <h2>{recording ? "Nagrywam…" : "Gotowa do słuchania"}</h2>
+          <h2>{recording ? t.recordingActive : t.readyToListen}</h2>
           <p>
             {recording
-              ? "Kliknij, aby zakończyć i przepisać notatkę"
-              : "Kliknij mikrofon lub użyj skrótu"}
+              ? t.recordingActiveDesc
+              : t.readyToListenDesc}
           </p>
           <kbd>{s.recordHotkey.replace("CommandOrControl", "Ctrl")}</kbd>
         </div>
@@ -164,20 +174,20 @@ function App() {
                 <Sparkles />
               </span>
               <div>
-                <h3>Korekta tekstu</h3>
-                <p>Zaznacz tekst w dowolnej aplikacji i użyj skrótu.</p>
+                <h3>{t.textCorrection}</h3>
+                <p>{t.textCorrectionDesc}</p>
               </div>
             </div>
             <div className="shortcut">
               <Keyboard />
-              <span>Globalny skrót</span>
+              <span>{t.globalShortcut}</span>
               <kbd>{s.correctHotkey.replace("CommandOrControl", "Ctrl")}</kbd>
             </div>
             <button
               className="secondary"
               onClick={() => window.szeptucha.correctSelection()}
             >
-              Popraw zaznaczony tekst
+              {t.correctSelectedText}
             </button>
           </article>
           <article>
@@ -186,30 +196,30 @@ function App() {
                 <FolderOpen />
               </span>
               <div>
-                <h3>Miejsce zapisu</h3>
-                <p>Każda transkrypcja trafia automatycznie tutaj.</p>
+                <h3>{t.saveLocation}</h3>
+                <p>{t.saveLocationDesc}</p>
               </div>
             </div>
             <div className="folder">
-              <span>{s.folder || "Nie wybrano folderu"}</span>
-              <button onClick={choose}>Zmień</button>
+              <span>{s.folder || t.noFolderSelected}</span>
+              <button onClick={choose}>{t.changeBtn}</button>
             </div>
             <button
               className="secondary"
               onClick={() => window.szeptucha.openFolder()}
             >
-              Otwórz folder
+              {t.openFolderBtn}
             </button>
           </article>
         </div>
         <section id="settings" className="settings">
           <div>
-            <p className="eyebrow">KONFIGURACJA</p>
-            <h2>Ustawienia</h2>
+            <p className="eyebrow">{t.configuration}</p>
+            <h2>{t.settingsTitle}</h2>
           </div>
           <div className="formgrid">
             <label>
-              Silnik transkrypcji
+              {t.transcriptionEngine}
               <select
                 value={s.provider}
                 onChange={(e) =>
@@ -225,13 +235,13 @@ function App() {
                   })
                 }
               >
-                <option value="local">Lokalnie (Whisper, bez klucza)</option>
-                <option value="openai">OpenAI / ChatGPT</option>
-                <option value="gemini">Google Gemini</option>
+                <option value="local">{t.localWhisper}</option>
+                <option value="openai">{t.openai}</option>
+                <option value="gemini">{t.gemini}</option>
               </select>
             </label>
             <label>
-              Format notatek
+              {t.noteFormat}
               <select
                 value={s.format}
                 onChange={(e) =>
@@ -244,37 +254,63 @@ function App() {
               </select>
             </label>
             <label className="wide">
-              Klucz API
+              {t.apiKey}
               <div className="key">
                 <input
                   type={showKey ? "text" : "password"}
                   value={s.apiKey}
-                  placeholder="Wklej klucz API"
+                  placeholder={t.pasteApiKey}
                   onChange={(e) => setS({ ...s, apiKey: e.target.value })}
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey(!showKey)}
-                  aria-label={showKey ? "Ukryj klucz API" : "Pokaż klucz API"}
-                  title={showKey ? "Ukryj klucz API" : "Pokaż klucz API"}
+                  aria-label={showKey ? t.hideApiKey : t.showApiKey}
+                  title={showKey ? t.hideApiKey : t.showApiKey}
                 >
                   {showKey ? <EyeOff /> : <Eye />}
                 </button>
               </div>
             </label>
             <label>
-              Skrót nagrywania
+              {t.recordingShortcut}
               <input
                 value={s.recordHotkey}
                 onChange={(e) => setS({ ...s, recordHotkey: e.target.value })}
               />
             </label>
             <label>
-              Skrót korekty
+              {t.correctionShortcut}
               <input
                 value={s.correctHotkey}
                 onChange={(e) => setS({ ...s, correctHotkey: e.target.value })}
               />
+            </label>
+            <label>
+              {t.interfaceLanguage}
+              <select
+                value={s.appLanguage || "system"}
+                onChange={(e) =>
+                  setS({ ...s, appLanguage: e.target.value as Settings["appLanguage"] })
+                }
+              >
+                <option value="system">{t.systemLanguage}</option>
+                <option value="pl">{t.langPl}</option>
+                <option value="en">{t.langEn}</option>
+              </select>
+            </label>
+            <label>
+              {t.recordingLanguage}
+              <select
+                value={s.language || "auto"}
+                onChange={(e) =>
+                  setS({ ...s, language: e.target.value })
+                }
+              >
+                <option value="auto">{t.langAuto}</option>
+                <option value="pl">{t.langPl}</option>
+                <option value="en">{t.langEn}</option>
+              </select>
             </label>
           </div>
           <label className="toggle">
@@ -286,11 +322,11 @@ function App() {
               }
             />
             <span />
-            Uruchamiaj wraz z systemem Windows
+            {t.launchAtStartup}
           </label>
           <fieldset className="saveOptions">
-            <legend>Automatyczny zapis notatek</legend>
-            <p>Zaznacz oba źródła, aby zapisywać każdą notatkę.</p>
+            <legend>{t.autoNoteSave}</legend>
+            <p>{t.autoNoteSaveDesc}</p>
             <label>
               <input
                 type="checkbox"
@@ -299,7 +335,7 @@ function App() {
                   setS({ ...s, saveFromInterface: e.target.checked })
                 }
               />
-              Z interfejsu graficznego
+              {t.fromGui}
             </label>
             <label>
               <input
@@ -309,12 +345,12 @@ function App() {
                   setS({ ...s, saveFromShortcut: e.target.checked })
                 }
               />
-              Ze skrótu klawiszowego
+              {t.fromShortcut}
             </label>
           </fieldset>
           <button className="primary" onClick={() => save()}>
             <Check />
-            Zapisz ustawienia
+            {t.saveSettingsBtn}
           </button>
         </section>
       </section>
