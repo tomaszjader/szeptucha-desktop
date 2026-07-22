@@ -149,4 +149,4 @@ npm run build:web
 
 ## Licencja
 
-Projekt jest prywatny (`"private": true` w `package.json`) i nie zawiera obecnie osobnego pliku licencji.
+Ten projekt jest udostępniany na licencji MIT. Szczegółowe warunki znajdują się w pliku [LICENSE](LICENSE).

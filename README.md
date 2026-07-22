@@ -149,4 +149,4 @@ npm run build:web
 
 ## License
 
-The project is private (`"private": true` in `package.json`) and currently does not contain a separate license file.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
