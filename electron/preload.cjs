@@ -3,6 +3,7 @@ let recorder,
   chunks = [],
   stream;
 let localTranscriber;
+let recordingTransition = null;
 
 const { preloadTranslations } = require("./translations.cjs");
 
@@ -42,25 +43,43 @@ async function transcribeLocally(blob, language, resolvedLang) {
   return ipcRenderer.invoke("transcription:save", result.text);
 }
 async function start() {
-  stream = await navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation: true, noiseSuppression: true },
-  });
-  chunks = [];
-  recorder = new MediaRecorder(stream);
-  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-  recorder.start();
-  ipcRenderer.send("recording:state", true);
+  if (recorder?.state === "recording") return;
+  if (recordingTransition) return recordingTransition;
+  recordingTransition = (async () => {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true },
+    });
+    chunks = [];
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    recorder.start();
+    ipcRenderer.send("recording:state", true);
+  })();
+  try {
+    await recordingTransition;
+  } finally {
+    recordingTransition = null;
+  }
 }
 function stop() {
-  return new Promise((resolve, reject) => {
-    if (!recorder) {
-      const sysLang = navigator.language.toLowerCase().startsWith("pl") ? "pl" : "en";
-      return reject(new Error(sysLang === "pl" ? "Nagrywanie nie jest aktywne" : "Recording is not active"));
-    }
-    recorder.onstop = async () => {
+  if (recordingTransition) return recordingTransition.then(() => stop());
+  if (!recorder || recorder.state !== "recording") {
+    const sysLang = navigator.language.toLowerCase().startsWith("pl") ? "pl" : "en";
+    return Promise.reject(
+      new Error(
+        sysLang === "pl"
+          ? "Nagrywanie nie jest aktywne"
+          : "Recording is not active",
+      ),
+    );
+  }
+  const activeRecorder = recorder;
+  recordingTransition = new Promise((resolve, reject) => {
+    activeRecorder.onstop = async () => {
       try {
-        const blob = new Blob(chunks, { type: recorder.mimeType });
-        stream?.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunks, { type: activeRecorder.mimeType });
+        stream?.getTracks().forEach((track) => track.stop());
+        stream = null;
         recorder = null;
         const settings = await ipcRenderer.invoke("settings:get");
         const resolvedLang = getResolvedLang(settings);
@@ -78,8 +97,16 @@ function stop() {
         reject(e);
       }
     };
-    recorder.stop();
+    activeRecorder.onerror = (event) =>
+      reject(event.error || new Error("MediaRecorder error"));
+    activeRecorder.stop();
     ipcRenderer.send("recording:state", false);
+  });
+  return recordingTransition.finally(() => {
+    recordingTransition = null;
+    if (recorder === activeRecorder) recorder = null;
+    stream?.getTracks().forEach((track) => track.stop());
+    stream = null;
   });
 }
 contextBridge.exposeInMainWorld("szeptucha", {
@@ -94,9 +121,9 @@ contextBridge.exposeInMainWorld("szeptucha", {
   onRecordingToggle: (cb) => {
     const f = async (_, v) => {
       try {
-        if (v && !recorder) await start();
-        else if (!v && recorder) await stop();
-        cb(v);
+        if (v && recorder?.state !== "recording") await start();
+        else if (!v && recorder?.state === "recording") await stop();
+        cb(recorder?.state === "recording");
       } catch (e) {
         ipcRenderer.send("recording:error", e.message);
         cb(false);

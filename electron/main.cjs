@@ -10,6 +10,7 @@ const {
   screen,
   shell,
   clipboard,
+  safeStorage,
 } = require("electron");
 const path = require("path"),
   fs = require("fs"),
@@ -49,22 +50,103 @@ const defaults = {
   saveFromShortcut: true,
   appLanguage: "system",
 };
+const providers = new Set(["openai", "gemini", "local"]);
+const formats = new Set(["md", "txt", "json"]);
+const appLanguages = new Set(["system", "pl", "en"]);
+const recordingLanguages = new Set(["auto", "pl", "en"]);
+const providerModels = {
+  openai: new Set(["gpt-4o-mini-transcribe"]),
+  gemini: new Set(["gemini-2.0-flash"]),
+  local: new Set(["whisper-tiny"]),
+};
+const MAX_TEXT_LENGTH = 1_000_000;
+const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
+
+function limitedString(value, fallback, maxLength = 500) {
+  return typeof value === "string" && value.length <= maxLength
+    ? value
+    : fallback;
+}
+function sanitizeSettings(value = {}) {
+  const source = value && typeof value === "object" ? value : {};
+  const provider = providers.has(source.provider)
+    ? source.provider
+    : defaults.provider;
+  const requestedModel = limitedString(source.model, "", 200);
+  const model = providerModels[provider].has(requestedModel)
+    ? requestedModel
+    : provider === "openai"
+      ? "gpt-4o-mini-transcribe"
+      : provider === "gemini"
+        ? "gemini-2.0-flash"
+        : "whisper-tiny";
+  const requestedFolder = limitedString(source.folder, defaults.folder, 32_000);
+  return {
+    ...defaults,
+    provider,
+    apiKey: limitedString(source.apiKey, "", 10_000).trim(),
+    model,
+    folder: path.isAbsolute(requestedFolder) ? requestedFolder : defaults.folder,
+    format: formats.has(source.format) ? source.format : defaults.format,
+    recordHotkey: limitedString(source.recordHotkey, defaults.recordHotkey, 200),
+    correctHotkey: limitedString(source.correctHotkey, defaults.correctHotkey, 200),
+    launchAtStartup: Boolean(source.launchAtStartup),
+    language: recordingLanguages.has(source.language)
+      ? source.language
+      : defaults.language,
+    saveFromInterface:
+      typeof source.saveFromInterface === "boolean"
+        ? source.saveFromInterface
+        : defaults.saveFromInterface,
+    saveFromShortcut:
+      typeof source.saveFromShortcut === "boolean"
+        ? source.saveFromShortcut
+        : defaults.saveFromShortcut,
+    appLanguage: appLanguages.has(source.appLanguage)
+      ? source.appLanguage
+      : defaults.appLanguage,
+  };
+}
+function decryptApiKey(value) {
+  if (!value || !safeStorage.isEncryptionAvailable()) return "";
+  try {
+    return safeStorage.decryptString(Buffer.from(value, "base64"));
+  } catch {
+    return "";
+  }
+}
 function settings() {
   try {
-    return {
-      ...defaults,
-      ...JSON.parse(fs.readFileSync(configPath(), "utf8")),
-    };
+    const stored = JSON.parse(fs.readFileSync(configPath(), "utf8"));
+    const apiKey = stored.apiKeyEncrypted
+      ? decryptApiKey(stored.apiKeyEncrypted)
+      : limitedString(stored.apiKey, "", 10_000);
+    const result = sanitizeSettings({ ...stored, apiKey });
+    if (stored.apiKey && safeStorage.isEncryptionAvailable()) save(result);
+    return result;
   } catch {
-    return defaults;
+    return { ...defaults };
   }
 }
 function save(s) {
+  const sanitized = sanitizeSettings(s);
+  const stored = { ...sanitized };
+  if (stored.apiKey && safeStorage.isEncryptionAvailable()) {
+    stored.apiKeyEncrypted = safeStorage
+      .encryptString(stored.apiKey)
+      .toString("base64");
+    delete stored.apiKey;
+  }
   fs.mkdirSync(path.dirname(configPath()), { recursive: true });
-  fs.writeFileSync(configPath(), JSON.stringify(s, null, 2));
-  return s;
+  const temporaryPath = `${configPath()}.tmp`;
+  fs.writeFileSync(temporaryPath, JSON.stringify(stored, null, 2), "utf8");
+  fs.renameSync(temporaryPath, configPath());
+  return sanitized;
 }
 function saveTranscription(text, s) {
+  if (typeof text !== "string" || text.length > MAX_TEXT_LENGTH) {
+    throw new Error("Invalid transcription");
+  }
   const lang = getLang(s);
   const t = mainTranslations[lang] || mainTranslations.en;
   
@@ -274,6 +356,13 @@ async function aiCorrect(text, s) {
     ? "Popraw wyłącznie literówki, błędy ortograficzne, interpunkcyjne i oczywiste błędy gramatyczne. Nie zmieniaj treści, znaczenia, tonu ani stylu. Zwróć tylko poprawiony tekst, bez komentarza.\n\n" + text
     : "Correct only typos, spelling, punctuation, and obvious grammatical errors. Do not change the content, meaning, tone, or style. Return only the corrected text, without any comments.\n\n" + text;
 
+  if (s.provider === "local") {
+    throw new Error(
+      lang === "pl"
+        ? "Lokalny silnik nie obsługuje jeszcze korekty tekstu"
+        : "The local engine does not support text correction yet",
+    );
+  }
   if (s.provider === "openai") {
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -344,6 +433,14 @@ async function correctText() {
   const s = settings();
   const lang = getLang(s);
   const t = mainTranslations[lang] || mainTranslations.en;
+  if (s.provider === "local") {
+    const message =
+      lang === "pl"
+        ? "Lokalny silnik nie obsługuje jeszcze korekty tekstu"
+        : "The local engine does not support text correction yet";
+    status("error", message);
+    return { ok: false, message };
+  }
   if (!s.apiKey) {
     status("error", t.statusNoApiKey);
     win.show();
@@ -366,6 +463,16 @@ async function correctText() {
   }
 }
 async function transcribe(buf, mime) {
+  const isAudioBuffer =
+    buf instanceof ArrayBuffer || ArrayBuffer.isView(buf);
+  if (
+    !isAudioBuffer ||
+    buf.byteLength === 0 ||
+    buf.byteLength > MAX_AUDIO_BYTES ||
+    (mime && (typeof mime !== "string" || !/^audio\/[\w.+-]+$/.test(mime)))
+  ) {
+    throw new Error("Invalid audio data");
+  }
   const s = settings();
   const lang = getLang(s);
   const t = mainTranslations[lang] || mainTranslations.en;
@@ -458,12 +565,12 @@ ipcMain.on("theme:set", (_, theme) => {
 });
 ipcMain.handle("settings:get", () => settings());
 ipcMain.handle("settings:save", (_, s) => {
-  save(s);
-  app.setLoginItemSettings({ openAtLogin: s.launchAtStartup });
+  const saved = save(s);
+  app.setLoginItemSettings({ openAtLogin: saved.launchAtStartup });
   shortcuts();
   trayMenu();
-  updateRecordingIndicatorLang(s);
-  return s;
+  updateRecordingIndicatorLang(saved);
+  return saved;
 });
 ipcMain.handle("folder:choose", async () => {
   const r = await dialog.showOpenDialog(win, {
@@ -494,7 +601,7 @@ ipcMain.handle("transcription:paste", async (_, text) => {
   pasteTranscription = false;
   clipboard.writeText(String(text || "").trim());
   await wait(150);
-  await keys("^v");
+  await keys("paste");
   
   const s = settings();
   const lang = getLang(s);

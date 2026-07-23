@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Mic,
@@ -43,10 +43,16 @@ function App() {
     [showKey, setShowKey] = useState(false),
     [toast, setToast] = useState(""),
     [ready, setReady] = useState(false);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const systemLang = navigator.language.startsWith("pl") ? "pl" : "en";
   const currentLang = !s.appLanguage || s.appLanguage === "system" ? systemLang : s.appLanguage;
   const t = translations[currentLang];
+  const showToast = (message: string, duration = 4500) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(message);
+    toastTimer.current = setTimeout(() => setToast(""), duration);
+  };
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -64,16 +70,20 @@ function App() {
   useEffect(
     () =>
       window.szeptucha.onStatus((x) => {
-        setToast(x.message);
-        setTimeout(() => setToast(""), 4500);
+        showToast(x.message);
       }),
+    [],
+  );
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    },
     [],
   );
   const save = async (next = s) => {
     const saved = await window.szeptucha.saveSettings(next);
     setS(saved);
-    setToast(t.settingsSaved);
-    setTimeout(() => setToast(""), 2500);
+    showToast(t.settingsSaved, 2500);
   };
   const choose = async () => {
     const folder = await window.szeptucha.chooseFolder();
@@ -90,8 +100,7 @@ function App() {
       }
     } catch (e) {
       setRecording(false);
-      setToast(e instanceof Error ? e.message : t.failedToRecord);
-      setTimeout(() => setToast(""), 4500);
+      showToast(e instanceof Error ? e.message : t.failedToRecord);
     }
   };
   if (!ready) {
@@ -146,9 +155,9 @@ function App() {
             <button className="themeToggle" onClick={() => setTheme(theme === "light" ? "dark" : "light")} aria-label={theme === "light" ? t.themeDark : t.themeLight} title={theme === "light" ? t.themeDarkTitle : t.themeLightTitle}>
               {theme === "light" ? <Moon /> : <Sun />}
             </button>
-            <span className={"status " + (s.apiKey ? "ok" : "")}>
+            <span className={"status " + (s.provider === "local" || s.apiKey ? "ok" : "")}>
               <i />
-              {s.apiKey ? t.aiReady : t.aiRequired}
+              {s.provider === "local" || s.apiKey ? t.aiReady : t.aiRequired}
             </span>
           </div>
         </header>
