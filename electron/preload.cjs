@@ -3,6 +3,7 @@ let recorder,
   chunks = [],
   stream;
 let localTranscriber;
+let currentWhisperModel = null;
 let recordingTransition = null;
 
 const { preloadTranslations } = require("./translations.cjs");
@@ -15,7 +16,13 @@ function getResolvedLang(settings) {
   return langSetting;
 }
 
-async function transcribeLocally(blob, language, resolvedLang) {
+const WHISPER_MODELS = {
+  "whisper-tiny": "onnx-community/whisper-tiny",
+  "whisper-base": "onnx-community/whisper-base",
+  "whisper-small": "onnx-community/whisper-small",
+};
+
+async function transcribeLocally(blob, language, resolvedLang, whisperModelSetting) {
   const t = preloadTranslations[resolvedLang] || preloadTranslations.en;
   ipcRenderer.send("transcription:status", t.loadingWhisper);
   const context = new AudioContext();
@@ -28,12 +35,16 @@ async function transcribeLocally(blob, language, resolvedLang) {
   source.start();
   const rendered = await offline.startRendering();
   await context.close();
-  if (!localTranscriber) {
+
+  const modelKey = whisperModelSetting && WHISPER_MODELS[whisperModelSetting]
+    ? whisperModelSetting
+    : "whisper-tiny";
+  const hfModelId = WHISPER_MODELS[modelKey];
+
+  if (!localTranscriber || currentWhisperModel !== hfModelId) {
     const { pipeline } = await import("@huggingface/transformers");
-    localTranscriber = await pipeline(
-      "automatic-speech-recognition",
-      "onnx-community/whisper-tiny",
-    );
+    localTranscriber = await pipeline("automatic-speech-recognition", hfModelId);
+    currentWhisperModel = hfModelId;
   }
   ipcRenderer.send("transcription:status", t.transcribingLocally);
   const result = await localTranscriber(rendered.getChannelData(0), {
@@ -42,6 +53,7 @@ async function transcribeLocally(blob, language, resolvedLang) {
   });
   return ipcRenderer.invoke("transcription:save", result.text);
 }
+
 async function start() {
   if (recorder?.state === "recording") return;
   if (recordingTransition) return recordingTransition;
@@ -61,6 +73,7 @@ async function start() {
     recordingTransition = null;
   }
 }
+
 function stop() {
   if (recordingTransition) return recordingTransition.then(() => stop());
   if (!recorder || recorder.state !== "recording") {
@@ -85,7 +98,7 @@ function stop() {
         const resolvedLang = getResolvedLang(settings);
         const useLocal = settings.provider === "local" || !settings.apiKey;
         const result = useLocal
-          ? await transcribeLocally(blob, settings.language, resolvedLang)
+          ? await transcribeLocally(blob, settings.language, resolvedLang, settings.whisperModel)
           : await ipcRenderer.invoke(
               "audio:transcribe",
               await blob.arrayBuffer(),
@@ -109,6 +122,7 @@ function stop() {
     stream = null;
   });
 }
+
 contextBridge.exposeInMainWorld("szeptucha", {
   setTheme: (theme) => ipcRenderer.send("theme:set", theme),
   getSettings: () => ipcRenderer.invoke("settings:get"),
@@ -118,6 +132,9 @@ contextBridge.exposeInMainWorld("szeptucha", {
   correctSelection: () => ipcRenderer.invoke("text:correct"),
   startRecording: start,
   stopRecording: stop,
+  getNotes: () => ipcRenderer.invoke("notes:get"),
+  readNote: (filePath) => ipcRenderer.invoke("notes:read", filePath),
+  deleteNote: (filePath) => ipcRenderer.invoke("notes:delete", filePath),
   onRecordingToggle: (cb) => {
     const f = async (_, v) => {
       try {
@@ -138,3 +155,4 @@ contextBridge.exposeInMainWorld("szeptucha", {
     return () => ipcRenderer.removeListener("status", f);
   },
 });
+

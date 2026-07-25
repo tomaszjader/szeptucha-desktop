@@ -40,6 +40,7 @@ const defaults = {
   provider: "openai",
   apiKey: "",
   model: "gpt-4o-mini-transcribe",
+  whisperModel: "whisper-tiny",
   folder: path.join(app.getPath("documents"), "Szeptucha"),
   format: "md",
   recordHotkey: "CommandOrControl+Shift+R",
@@ -49,15 +50,17 @@ const defaults = {
   saveFromInterface: true,
   saveFromShortcut: true,
   appLanguage: "system",
+  soundEnabled: true,
 };
 const providers = new Set(["openai", "gemini", "local"]);
 const formats = new Set(["md", "txt", "json"]);
 const appLanguages = new Set(["system", "pl", "en"]);
 const recordingLanguages = new Set(["auto", "pl", "en"]);
+const whisperModels = new Set(["whisper-tiny", "whisper-base", "whisper-small"]);
 const providerModels = {
   openai: new Set(["gpt-4o-mini-transcribe"]),
   gemini: new Set(["gemini-2.0-flash"]),
-  local: new Set(["whisper-tiny"]),
+  local: new Set(["whisper-tiny", "whisper-base", "whisper-small"]),
 };
 const MAX_TEXT_LENGTH = 1_000_000;
 const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
@@ -86,6 +89,9 @@ function sanitizeSettings(value = {}) {
     provider,
     apiKey: limitedString(source.apiKey, "", 10_000).trim(),
     model,
+    whisperModel: whisperModels.has(source.whisperModel)
+      ? source.whisperModel
+      : defaults.whisperModel,
     folder: path.isAbsolute(requestedFolder) ? requestedFolder : defaults.folder,
     format: formats.has(source.format) ? source.format : defaults.format,
     recordHotkey: limitedString(source.recordHotkey, defaults.recordHotkey, 200),
@@ -105,6 +111,10 @@ function sanitizeSettings(value = {}) {
     appLanguage: appLanguages.has(source.appLanguage)
       ? source.appLanguage
       : defaults.appLanguage,
+    soundEnabled:
+      typeof source.soundEnabled === "boolean"
+        ? source.soundEnabled
+        : defaults.soundEnabled,
   };
 }
 function decryptApiKey(value) {
@@ -302,20 +312,29 @@ function showRecordingIndicator(active) {
 function setRecordingState(active) {
   recording = active;
   showRecordingIndicator(active);
+  trayMenu();
   win?.webContents.send("recording:toggle", active);
 }
 function shortcuts() {
   globalShortcut.unregisterAll();
   const s = settings();
-  try {
-    globalShortcut.register(s.recordHotkey, () => {
-      if (!recording) pasteTranscription = true;
-      setRecordingState(!recording);
-    });
-  } catch {}
-  try {
-    globalShortcut.register(s.correctHotkey, () => correctText());
-  } catch {}
+  if (s.recordHotkey) {
+    try {
+      globalShortcut.register(s.recordHotkey, () => {
+        if (!recording) pasteTranscription = true;
+        setRecordingState(!recording);
+      });
+    } catch (e) {
+      console.error("Failed to register record hotkey:", e);
+    }
+  }
+  if (s.correctHotkey) {
+    try {
+      globalShortcut.register(s.correctHotkey, () => correctText());
+    } catch (e) {
+      console.error("Failed to register correct hotkey:", e);
+    }
+  }
 }
 function trayMenu() {
   const s = settings();
@@ -328,12 +347,12 @@ function trayMenu() {
       .resize({ width: 20, height: 20 });
     tray = new Tray(icon);
   }
-  tray.setToolTip("Szeptucha");
+  tray.setToolTip(recording ? `Szeptucha (${t.recordingActive || "Nagrywam..."})` : "Szeptucha");
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: t.trayOpen, click: () => win.show() },
       {
-        label: t.trayRecord,
+        label: recording ? (lang === "pl" ? "Zatrzymaj nagrywanie" : "Stop recording") : t.trayRecord,
         click: () => {
           setRecordingState(!recording);
         },
@@ -443,14 +462,27 @@ async function correctText() {
   }
   if (!s.apiKey) {
     status("error", t.statusNoApiKey);
-    win.show();
+    win?.show();
     return { ok: false, message: t.statusNoApiKey };
   }
+
+  const prevClipboard = clipboard.readText();
   try {
+    clipboard.clear();
     await keys("copy");
-    await wait(250);
-    const text = clipboard.readText();
-    if (!text.trim()) throw new Error(t.statusSelectText);
+
+    let text = "";
+    for (let i = 0; i < 10; i++) {
+      await wait(50);
+      text = clipboard.readText();
+      if (text && text.trim()) break;
+    }
+
+    if (!text || !text.trim()) {
+      if (prevClipboard) clipboard.writeText(prevClipboard);
+      throw new Error(t.statusSelectText || (lang === "pl" ? "Zaznacz tekst przed użyciem skrótu" : "Select text before using shortcut"));
+    }
+
     status("info", t.statusCorrecting);
     const corrected = await aiCorrect(text, s);
     clipboard.writeText(corrected.trim());
@@ -548,6 +580,50 @@ async function transcribe(buf, mime) {
   }
   return saveTranscription(text, s);
 }
+
+function getNotesFromFolder(folderPath) {
+  if (!folderPath || !fs.existsSync(folderPath)) return [];
+  try {
+    const files = fs.readdirSync(folderPath);
+    const notes = [];
+    for (const file of files) {
+      const ext = path.extname(file).toLowerCase().slice(1);
+      if (!["md", "txt", "json"].includes(ext)) continue;
+      const filePath = path.join(folderPath, file);
+      const stat = fs.statSync(filePath);
+      if (!stat.isFile()) continue;
+
+      let preview = "";
+      try {
+        const raw = fs.readFileSync(filePath, "utf8");
+        if (ext === "json") {
+          const parsed = JSON.parse(raw);
+          preview = parsed.text || raw;
+        } else {
+          preview = raw.replace(/^#\s*Notatka[^\n]*\n+/i, "");
+        }
+      } catch {
+        preview = "";
+      }
+
+      notes.push({
+        id: file,
+        filename: file,
+        path: filePath,
+        text: preview.trim(),
+        createdAt: stat.mtime.toISOString(),
+        format: ext,
+        sizeBytes: stat.size,
+      });
+    }
+    notes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return notes;
+  } catch (e) {
+    console.error("Error reading notes:", e);
+    return [];
+  }
+}
+
 app.whenReady().then(() => {
   createWindow();
   createRecordingIndicator();
@@ -591,9 +667,25 @@ ipcMain.handle("transcription:save", (_, text) => {
   return saveTranscription(text, s);
 });
 ipcMain.handle("text:correct", () => correctText());
+ipcMain.handle("notes:get", () => {
+  const s = settings();
+  return getNotesFromFolder(s.folder);
+});
+ipcMain.handle("notes:read", (_, filePath) => {
+  if (!filePath || !fs.existsSync(filePath)) throw new Error("File not found");
+  return fs.readFileSync(filePath, "utf8");
+});
+ipcMain.handle("notes:delete", (_, filePath) => {
+  if (filePath && fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+    return true;
+  }
+  return false;
+});
 ipcMain.on("recording:state", (_, v) => {
   recording = v;
   showRecordingIndicator(v);
+  trayMenu();
 });
 ipcMain.on("transcription:status", (_, message) => status("info", message));
 ipcMain.handle("transcription:paste", async (_, text) => {
@@ -613,5 +705,7 @@ ipcMain.on("recording:error", (_, m) => {
   recording = false;
   pasteTranscription = false;
   showRecordingIndicator(false);
+  trayMenu();
   status("error", m);
 });
+
