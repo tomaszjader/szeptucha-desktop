@@ -64,6 +64,17 @@ const providerModels = {
 };
 const MAX_TEXT_LENGTH = 1_000_000;
 const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
+const DEFAULT_AUDIO_MIME = "audio/webm";
+
+function normalizeAudioMime(value) {
+  if (!value) return DEFAULT_AUDIO_MIME;
+  if (typeof value !== "string" || value.length > 200) return null;
+
+  // MediaRecorder commonly reports values such as
+  // "audio/webm;codecs=opus". APIs only need the base media type.
+  const mediaType = value.split(";", 1)[0].trim().toLowerCase();
+  return /^audio\/[\w.+-]+$/.test(mediaType) ? mediaType : null;
+}
 
 function limitedString(value, fallback, maxLength = 500) {
   return typeof value === "string" && value.length <= maxLength
@@ -497,11 +508,12 @@ async function correctText() {
 async function transcribe(buf, mime) {
   const isAudioBuffer =
     buf instanceof ArrayBuffer || ArrayBuffer.isView(buf);
+  const audioMime = normalizeAudioMime(mime);
   if (
     !isAudioBuffer ||
     buf.byteLength === 0 ||
     buf.byteLength > MAX_AUDIO_BYTES ||
-    (mime && (typeof mime !== "string" || !/^audio\/[\w.+-]+$/.test(mime)))
+    !audioMime
   ) {
     throw new Error("Invalid audio data");
   }
@@ -515,7 +527,7 @@ async function transcribe(buf, mime) {
     const form = new FormData();
     form.append(
       "file",
-      new Blob([buf], { type: mime || "audio/webm" }),
+      new Blob([buf], { type: audioMime }),
       "nagranie.webm",
     );
     form.append(
@@ -562,7 +574,7 @@ async function transcribe(buf, mime) {
                 },
                 {
                   inline_data: {
-                    mime_type: mime || "audio/webm",
+                    mime_type: audioMime,
                     data: Buffer.from(buf).toString("base64"),
                   },
                 },
@@ -708,4 +720,3 @@ ipcMain.on("recording:error", (_, m) => {
   trayMenu();
   status("error", m);
 });
-
