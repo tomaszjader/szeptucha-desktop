@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { Keyboard, X } from "lucide-react";
-import { translations } from "../translations";
+import { translations, type AppLanguage } from "../translations";
 
 interface HotkeyInputProps {
   value: string;
   onChange: (newValue: string) => void;
-  lang: "pl" | "en";
+  lang: AppLanguage;
 }
 
 export const HotkeyInput: React.FC<HotkeyInputProps> = ({ value, onChange, lang }) => {

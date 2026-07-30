@@ -1,11 +1,11 @@
 import React from "react";
 import { Mic, Settings as SettingsIcon, ShieldCheck, AudioLines, History as HistoryIcon } from "lucide-react";
-import { translations } from "../translations";
+import { translations, type AppLanguage } from "../translations";
 
 interface SidebarProps {
   currentTab: "recording" | "history" | "settings";
   setCurrentTab: (tab: "recording" | "history" | "settings") => void;
-  lang: "pl" | "en";
+  lang: AppLanguage;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, lang }) => {

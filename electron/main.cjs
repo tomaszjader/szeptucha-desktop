@@ -25,7 +25,10 @@ const { mainTranslations } = require("./translations.cjs");
 
 function getSystemLanguage() {
   const locale = app.getLocale();
-  return locale && locale.toLowerCase().startsWith("pl") ? "pl" : "en";
+  const normalized = locale ? locale.toLowerCase() : "";
+  if (normalized.startsWith("pl")) return "pl";
+  if (normalized.startsWith("de")) return "de";
+  return "en";
 }
 
 function getLang(s) {
@@ -54,8 +57,8 @@ const defaults = {
 };
 const providers = new Set(["openai", "gemini", "local"]);
 const formats = new Set(["md", "txt", "json"]);
-const appLanguages = new Set(["system", "pl", "en"]);
-const recordingLanguages = new Set(["auto", "pl", "en"]);
+const appLanguages = new Set(["system", "pl", "en", "de"]);
+const recordingLanguages = new Set(["auto", "pl", "en", "de"]);
 const whisperModels = new Set(["whisper-tiny", "whisper-base", "whisper-small"]);
 const providerModels = {
   openai: new Set(["gpt-4o-mini-transcribe"]),
@@ -363,7 +366,7 @@ function trayMenu() {
     Menu.buildFromTemplate([
       { label: t.trayOpen, click: () => win.show() },
       {
-        label: recording ? (lang === "pl" ? "Zatrzymaj nagrywanie" : "Stop recording") : t.trayRecord,
+        label: recording ? t.trayStop : t.trayRecord,
         click: () => {
           setRecordingState(!recording);
         },
@@ -382,15 +385,20 @@ function trayMenu() {
 }
 async function aiCorrect(text, s) {
   const lang = getLang(s);
-  const prompt = lang === "pl"
-    ? "Popraw wyłącznie literówki, błędy ortograficzne, interpunkcyjne i oczywiste błędy gramatyczne. Nie zmieniaj treści, znaczenia, tonu ani stylu. Zwróć tylko poprawiony tekst, bez komentarza.\n\n" + text
-    : "Correct only typos, spelling, punctuation, and obvious grammatical errors. Do not change the content, meaning, tone, or style. Return only the corrected text, without any comments.\n\n" + text;
+  const correctionInstruction = lang === "pl"
+    ? "Popraw wyłącznie literówki, błędy ortograficzne, interpunkcyjne i oczywiste błędy gramatyczne. Nie zmieniaj treści, znaczenia, tonu ani stylu. Zwróć tylko poprawiony tekst, bez komentarza."
+    : lang === "de"
+      ? "Korrigiere ausschließlich Tippfehler, Rechtschreibung, Zeichensetzung und offensichtliche Grammatikfehler. Ändere weder Inhalt, Bedeutung, Ton noch Stil. Gib nur den korrigierten Text ohne Kommentar zurück."
+      : "Correct only typos, spelling, punctuation, and obvious grammatical errors. Do not change the content, meaning, tone, or style. Return only the corrected text, without any comments.";
+  const prompt = correctionInstruction + "\n\n" + text;
 
   if (s.provider === "local") {
     throw new Error(
       lang === "pl"
         ? "Lokalny silnik nie obsługuje jeszcze korekty tekstu"
-        : "The local engine does not support text correction yet",
+        : lang === "de"
+          ? "Das lokale Modul unterstützt die Textkorrektur noch nicht"
+          : "The local engine does not support text correction yet",
     );
   }
   if (s.provider === "openai") {
@@ -467,7 +475,9 @@ async function correctText() {
     const message =
       lang === "pl"
         ? "Lokalny silnik nie obsługuje jeszcze korekty tekstu"
-        : "The local engine does not support text correction yet";
+        : lang === "de"
+          ? "Das lokale Modul unterstützt die Textkorrektur noch nicht"
+          : "The local engine does not support text correction yet";
     status("error", message);
     return { ok: false, message };
   }
@@ -556,6 +566,8 @@ async function transcribe(buf, mime) {
     let geminiInstruction;
     if (recordingLang === "pl") {
       geminiInstruction = "Dokładnie przepisz tę polską notatkę głosową. Zwróć tylko transkrypcję.";
+    } else if (recordingLang === "de") {
+      geminiInstruction = "Transkribiere diese deutsche Sprachnotiz genau. Gib nur die Transkription zurück.";
     } else {
       geminiInstruction = "Accurately transcribe this English voice note. Return only the transcription.";
     }

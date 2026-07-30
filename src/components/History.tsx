@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Search, Copy, Trash2, ExternalLink, FileText, Check, Calendar } from "lucide-react";
-import { translations } from "../translations";
+import { translations, type AppLanguage } from "../translations";
 
 interface NoteItem {
   id: string;
@@ -13,7 +13,7 @@ interface NoteItem {
 }
 
 interface HistoryProps {
-  lang: "pl" | "en";
+  lang: AppLanguage;
   showToast: (msg: string) => void;
   onOpenFolder: () => void;
 }
@@ -72,7 +72,8 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
   const formatDate = (isoString: string) => {
     try {
       const date = new Date(isoString);
-      return date.toLocaleString(lang === "pl" ? "pl-PL" : "en-US", {
+      const locale = lang === "pl" ? "pl-PL" : lang === "de" ? "de-DE" : "en-US";
+      return date.toLocaleString(locale, {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",

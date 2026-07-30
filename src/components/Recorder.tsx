@@ -1,13 +1,13 @@
 import React from "react";
 import { Mic, StopCircle, Sparkles, Keyboard, FolderOpen } from "lucide-react";
-import { translations } from "../translations";
+import { translations, type AppLanguage } from "../translations";
 import { useAudioLevel } from "../hooks/useAudioLevel";
 
 interface RecorderProps {
   recording: boolean;
   onToggleRecording: () => void;
   s: Settings;
-  lang: "pl" | "en";
+  lang: AppLanguage;
   onChangeFolder: () => void;
   onOpenFolder: () => void;
   onCorrectText: () => void;

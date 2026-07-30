@@ -11,7 +11,10 @@ const { preloadTranslations } = require("./translations.cjs");
 function getResolvedLang(settings) {
   const langSetting = settings.appLanguage || "system";
   if (langSetting === "system") {
-    return navigator.language.toLowerCase().startsWith("pl") ? "pl" : "en";
+    const browserLanguage = navigator.language.toLowerCase();
+    if (browserLanguage.startsWith("pl")) return "pl";
+    if (browserLanguage.startsWith("de")) return "de";
+    return "en";
   }
   return langSetting;
 }
@@ -77,12 +80,19 @@ async function start() {
 function stop() {
   if (recordingTransition) return recordingTransition.then(() => stop());
   if (!recorder || recorder.state !== "recording") {
-    const sysLang = navigator.language.toLowerCase().startsWith("pl") ? "pl" : "en";
+    const browserLanguage = navigator.language.toLowerCase();
+    const sysLang = browserLanguage.startsWith("pl")
+      ? "pl"
+      : browserLanguage.startsWith("de")
+        ? "de"
+        : "en";
     return Promise.reject(
       new Error(
         sysLang === "pl"
           ? "Nagrywanie nie jest aktywne"
-          : "Recording is not active",
+          : sysLang === "de"
+            ? "Die Aufnahme ist nicht aktiv"
+            : "Recording is not active",
       ),
     );
   }
@@ -155,4 +165,3 @@ contextBridge.exposeInMainWorld("szeptucha", {
     return () => ipcRenderer.removeListener("status", f);
   },
 });
-

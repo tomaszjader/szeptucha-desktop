@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { Check, Eye, EyeOff, Volume2, VolumeX } from "lucide-react";
-import { translations } from "../translations";
+import { translations, type AppLanguage } from "../translations";
 import { HotkeyInput } from "./HotkeyInput";
 
 interface SettingsFormProps {
   s: Settings;
   setS: React.Dispatch<React.SetStateAction<Settings>>;
   onSave: (next?: Settings) => void;
-  lang: "pl" | "en";
+  lang: AppLanguage;
 }
 
 export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, lang }) => {
@@ -129,6 +129,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, lan
             <option value="system">{t.systemLanguage}</option>
             <option value="pl">{t.langPl}</option>
             <option value="en">{t.langEn}</option>
+            <option value="de">{t.langDe}</option>
           </select>
         </label>
 
@@ -141,6 +142,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, lan
             <option value="auto">{t.langAuto}</option>
             <option value="pl">{t.langPl}</option>
             <option value="en">{t.langEn}</option>
+            <option value="de">{t.langDe}</option>
           </select>
         </label>
       </div>

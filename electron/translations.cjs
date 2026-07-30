@@ -17,6 +17,7 @@ const mainTranslations = {
     recordingSub: "Użyj skrótu ponownie, aby zakończyć",
     trayOpen: "Otwórz Szeptuchę",
     trayRecord: "Nagraj notatkę",
+    trayStop: "Zatrzymaj nagrywanie",
     trayExit: "Zakończ",
   },
   en: {
@@ -37,7 +38,29 @@ const mainTranslations = {
     recordingSub: "Use the shortcut again to finish",
     trayOpen: "Open Szeptucha",
     trayRecord: "Record note",
+    trayStop: "Stop recording",
     trayExit: "Exit",
+  },
+  de: {
+    statusWhisperLoad: "Lokales Whisper-Modell wird geladen…",
+    statusWhisperTranscribe: "Lokale Transkription läuft…",
+    statusNoApiKey: "Bitte zuerst den API-Schlüssel eingeben",
+    statusNoApiKeySettings: "Bitte zuerst den API-Schlüssel in den Einstellungen eingeben",
+    statusSelectText: "Text zum Korrigieren markieren",
+    statusCorrecting: "Markierter Text wird korrigiert…",
+    statusCorrected: "Der Text wurde korrigiert",
+    statusTranscribing: "Aufnahme wird transkribiert…",
+    statusPasted: "Die Transkription wurde eingefügt",
+    statusReadyNoSave: "Transkription fertig (ohne Speicherung)",
+    statusSaved: "Gespeichert",
+    noteFilePrefix: "notiz",
+    noteDocHeader: "# Sprachnotiz",
+    recordingActive: "Aufnahme aktiv",
+    recordingSub: "Tastenkürzel erneut drücken, um zu beenden",
+    trayOpen: "Szeptucha öffnen",
+    trayRecord: "Notiz aufnehmen",
+    trayStop: "Aufnahme beenden",
+    trayExit: "Beenden",
   }
 };
 
@@ -51,6 +74,11 @@ const preloadTranslations = {
     loadingWhisper: "Loading local Whisper model…",
     transcribingLocally: "Transcribing locally…",
     recordingNotActive: "Recording is not active",
+  },
+  de: {
+    loadingWhisper: "Lokales Whisper-Modell wird geladen…",
+    transcribingLocally: "Lokale Transkription läuft…",
+    recordingNotActive: "Die Aufnahme ist nicht aktiv",
   }
 };
 

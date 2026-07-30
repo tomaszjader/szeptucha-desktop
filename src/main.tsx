@@ -43,7 +43,12 @@ function App() {
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const systemLang = navigator.language.startsWith("pl") ? "pl" : "en";
+  const browserLanguage = navigator.language.toLowerCase();
+  const systemLang = browserLanguage.startsWith("pl")
+    ? "pl"
+    : browserLanguage.startsWith("de")
+      ? "de"
+      : "en";
   const currentLang = !s.appLanguage || s.appLanguage === "system" ? systemLang : s.appLanguage;
   const t = translations[currentLang];
 
@@ -120,7 +125,7 @@ function App() {
   };
 
   if (!ready) {
-    const loadingText = systemLang === "pl" ? "Szeptucha budzi się…" : "Szeptucha is waking up…";
+    const loadingText = translations[systemLang].wakingUp;
     return <div className="loading">{loadingText}</div>;
   }
 
