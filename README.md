@@ -1,6 +1,6 @@
 # Szeptucha Desktop
 
-[Wersja polska (Polish version)](README.pl.md)
+[Wersja polska (Polish version)](README.pl.md) | [Deutsche Version (German version)](README.de.md)
 
 Szeptucha is a desktop application for Windows that converts microphone recordings into notes and refines selected text using AI. It can transcribe audio locally without an API key, or use OpenAI or Google Gemini. It runs in the background, provides global keyboard shortcuts, and saves every transcription to disk.
 
