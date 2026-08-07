@@ -28,6 +28,7 @@ function getSystemLanguage() {
   const normalized = locale ? locale.toLowerCase() : "";
   if (normalized.startsWith("pl")) return "pl";
   if (normalized.startsWith("de")) return "de";
+  if (normalized.startsWith("ru")) return "ru";
   return "en";
 }
 
@@ -57,8 +58,8 @@ const defaults = {
 };
 const providers = new Set(["openai", "gemini", "local"]);
 const formats = new Set(["md", "txt", "json"]);
-const appLanguages = new Set(["system", "pl", "en", "de"]);
-const recordingLanguages = new Set(["auto", "pl", "en", "de"]);
+const appLanguages = new Set(["system", "pl", "en", "de", "ru"]);
+const recordingLanguages = new Set(["auto", "pl", "en", "de", "ru"]);
 const whisperModels = new Set(["whisper-tiny", "whisper-base", "whisper-small"]);
 const providerModels = {
   openai: new Set(["gpt-4o-mini-transcribe"]),
@@ -568,6 +569,8 @@ async function transcribe(buf, mime) {
       geminiInstruction = "Dokładnie przepisz tę polską notatkę głosową. Zwróć tylko transkrypcję.";
     } else if (recordingLang === "de") {
       geminiInstruction = "Transkribiere diese deutsche Sprachnotiz genau. Gib nur die Transkription zurück.";
+    } else if (recordingLang === "ru") {
+      geminiInstruction = "Точно расшифруй эту голосовую заметку на русском языке. Верни только расшифровку.";
     } else {
       geminiInstruction = "Accurately transcribe this English voice note. Return only the transcription.";
     }

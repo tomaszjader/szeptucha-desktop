@@ -72,7 +72,7 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
   const formatDate = (isoString: string) => {
     try {
       const date = new Date(isoString);
-      const locale = lang === "pl" ? "pl-PL" : lang === "de" ? "de-DE" : "en-US";
+      const locale = lang === "pl" ? "pl-PL" : lang === "de" ? "de-DE" : lang === "ru" ? "ru-RU" : "en-US";
       return date.toLocaleString(locale, {
         day: "2-digit",
         month: "2-digit",

@@ -14,6 +14,7 @@ function getResolvedLang(settings) {
     const browserLanguage = navigator.language.toLowerCase();
     if (browserLanguage.startsWith("pl")) return "pl";
     if (browserLanguage.startsWith("de")) return "de";
+    if (browserLanguage.startsWith("ru")) return "ru";
     return "en";
   }
   return langSetting;
@@ -85,13 +86,17 @@ function stop() {
       ? "pl"
       : browserLanguage.startsWith("de")
         ? "de"
-        : "en";
+        : browserLanguage.startsWith("ru")
+          ? "ru"
+          : "en";
     return Promise.reject(
       new Error(
         sysLang === "pl"
           ? "Nagrywanie nie jest aktywne"
           : sysLang === "de"
             ? "Die Aufnahme ist nicht aktiv"
+            : sysLang === "ru"
+              ? "Запись не активна"
             : "Recording is not active",
       ),
     );

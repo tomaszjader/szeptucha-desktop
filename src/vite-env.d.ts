@@ -41,6 +41,6 @@ interface Settings {
   language: string;
   saveFromInterface: boolean;
   saveFromShortcut: boolean;
-  appLanguage?: 'system' | 'pl' | 'en' | 'de';
+  appLanguage?: 'system' | 'pl' | 'en' | 'de' | 'ru';
   soundEnabled?: boolean;
 }

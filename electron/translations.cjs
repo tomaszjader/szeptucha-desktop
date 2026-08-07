@@ -61,6 +61,27 @@ const mainTranslations = {
     trayRecord: "Notiz aufnehmen",
     trayStop: "Aufnahme beenden",
     trayExit: "Beenden",
+  },
+  ru: {
+    statusWhisperLoad: "Загрузка локальной модели Whisper…",
+    statusWhisperTranscribe: "Локальная транскрипция…",
+    statusNoApiKey: "Сначала введите ключ API",
+    statusNoApiKeySettings: "Сначала введите ключ API в настройках",
+    statusSelectText: "Выделите текст для исправления",
+    statusCorrecting: "Исправление выделенного текста…",
+    statusCorrected: "Текст исправлен",
+    statusTranscribing: "Расшифровка записи…",
+    statusPasted: "Транскрипция вставлена",
+    statusReadyNoSave: "Транскрипция готова (без сохранения в файл)",
+    statusSaved: "Сохранено",
+    noteFilePrefix: "заметка",
+    noteDocHeader: "# Голосовая заметка",
+    recordingActive: "Запись активна",
+    recordingSub: "Нажмите сочетание клавиш ещё раз, чтобы завершить",
+    trayOpen: "Открыть Szeptucha",
+    trayRecord: "Записать заметку",
+    trayStop: "Остановить запись",
+    trayExit: "Выход",
   }
 };
 
@@ -79,6 +100,11 @@ const preloadTranslations = {
     loadingWhisper: "Lokales Whisper-Modell wird geladen…",
     transcribingLocally: "Lokale Transkription läuft…",
     recordingNotActive: "Die Aufnahme ist nicht aktiv",
+  },
+  ru: {
+    loadingWhisper: "Загрузка локальной модели Whisper…",
+    transcribingLocally: "Локальная транскрипция…",
+    recordingNotActive: "Запись не активна",
   }
 };
 

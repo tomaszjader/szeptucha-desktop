@@ -48,7 +48,9 @@ function App() {
     ? "pl"
     : browserLanguage.startsWith("de")
       ? "de"
-      : "en";
+      : browserLanguage.startsWith("ru")
+        ? "ru"
+        : "en";
   const currentLang = !s.appLanguage || s.appLanguage === "system" ? systemLang : s.appLanguage;
   const t = translations[currentLang];
 

@@ -130,6 +130,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, lan
             <option value="pl">{t.langPl}</option>
             <option value="en">{t.langEn}</option>
             <option value="de">{t.langDe}</option>
+            <option value="ru">{t.langRu}</option>
           </select>
         </label>
 
@@ -143,6 +144,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, lan
             <option value="pl">{t.langPl}</option>
             <option value="en">{t.langEn}</option>
             <option value="de">{t.langDe}</option>
+            <option value="ru">{t.langRu}</option>
           </select>
         </label>
       </div>
