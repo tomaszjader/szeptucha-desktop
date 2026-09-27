@@ -136,6 +136,7 @@ function App() {
       <Sidebar
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
+        onOpenOcr={() => window.szeptucha.openOcr()}
         lang={currentLang}
       />
 

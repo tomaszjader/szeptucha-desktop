@@ -19,6 +19,7 @@ Aktualna wersja: **0.1.0**.
 - jasny i ciemny motyw, dobierany początkowo do ustawień systemu,
 - praca w tle przez ikonę w zasobniku systemowym,
 - opcjonalne uruchamianie razem z systemem Windows.
+- lokalny OCR zaznaczonego fragmentu ekranu przez Tesseract.js (polski i angielski), z kopiowaniem wyniku do schowka, historią oraz obsługą wielu monitorów.
 
 ## Jak korzystać
 
@@ -46,6 +47,12 @@ Domyślny skrót korekty: `Ctrl+Q`.
 ### Praca w tle
 
 Zamknięcie głównego okna ukrywa aplikację zamiast ją wyłączać. Z menu ikony w zasobniku można otworzyć okno, rozpocząć lub zakończyć nagrywanie oraz całkowicie zamknąć Szeptuchę. Dwukrotne kliknięcie ikony ponownie otwiera okno.
+
+### Tekst z ekranu (OCR)
+
+Kliknij **Tekst z ekranu (OCR)** w nawigacji Szeptuchy albo wybierz **Otwórz OCR** z menu zasobnika. Naciśnij `Win+Shift+Q` lub kliknij przycisk zaznaczania w oknie OCR, a następnie przeciągnij myszą po tekście na jednym monitorze. Wynik zostanie skopiowany do schowka, jeśli włączono automatyczne kopiowanie. `Esc`, prawy przycisk myszy lub ponowne użycie skrótu anuluje zaznaczanie.
+
+OCR działa lokalnie na urządzeniu i rozpoznaje polski oraz angielski. W oknie OCR można włączyć historię odczytów, jej zapis między uruchomieniami, porządkowanie tekstu i automatyczne kopiowanie. Ustawienia OCR są niezależne od ustawień transkrypcji.
 
 ## Silniki transkrypcji
 
@@ -83,6 +90,7 @@ Ustawienia są przechowywane w pliku `settings.json` w katalogu danych aplikacji
 - dostęp do mikrofonu,
 - Node.js i npm — tylko do uruchamiania projektu ze źródeł,
 - klucz API OpenAI albo Google Gemini — tylko do transkrypcji chmurowej i korekty tekstu.
+- dostęp do ekranu dla OCR; modele językowe Tesseracta są dołączone do aplikacji.
 
 ## Instalacja i rozwój
 
@@ -105,6 +113,8 @@ Uruchom wcześniej zbudowaną aplikację bez serwera developerskiego:
 ```powershell
 npm start
 ```
+
+Testy OCR: `npm test` uruchamia testy jednostkowe, a `npm run test:e2e:ocr` sprawdza aplikację na widocznym, odblokowanym pulpicie (skrót globalny, zaznaczanie i schowek).
 
 ## Budowanie
 
@@ -129,6 +139,7 @@ npm run build:web
 |-- assets/             # ikony aplikacji i instalatora
 |-- electron/
 |   |-- main.cjs        # okna, tray, skróty, API, schowek i zapis plików
+|   |-- ocr/            # lokalny OCR, przechwytywanie ekranu i okno wyników
 |   `-- preload.cjs     # nagrywanie, lokalny Whisper i bezpieczny most IPC
 |-- src/
 |   |-- main.tsx        # interfejs React i ustawienia
@@ -146,6 +157,7 @@ npm run build:web
 - lokalny Whisper nie wysyła nagrania do zewnętrznego API,
 - przy korzystaniu z OpenAI lub Gemini nagranie albo tekst trafia do wybranego dostawcy w celu przetworzenia,
 - transkrypcje są zapisywane lokalnie w skonfigurowanym folderze.
+- obrazy ekranu są przetwarzane lokalnie w pamięci; nie są zapisywane ani wysyłane do API. Historia OCR jest domyślnie tylko w pamięci, z opcją lokalnego zapisu.
 
 ## Licencja
 

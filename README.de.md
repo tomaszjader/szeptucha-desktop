@@ -19,6 +19,7 @@ Aktuelle Version: **0.1.0**.
 - helles und dunkles Design, das sich anfangs an den Systemeinstellungen orientiert,
 - Hintergrundbetrieb über das Symbol im Infobereich,
 - optionaler automatischer Start mit Windows.
+- lokale OCR-Erkennung eines markierten Bildschirmbereichs mit Tesseract.js (Polnisch und Englisch), Kopieren in die Zwischenablage, Verlauf und Unterstützung mehrerer Monitore.
 
 ## Verwendung
 
@@ -46,6 +47,12 @@ Standard-Tastenkürzel für die Korrektur: `Ctrl+Q`.
 ### Hintergrundbetrieb
 
 Beim Schließen des Hauptfensters wird die Anwendung ausgeblendet, anstatt beendet zu werden. Über das Menü des Symbols im Infobereich können Sie das Fenster öffnen, eine Aufnahme starten oder beenden und Szeptucha vollständig schließen. Ein Doppelklick auf das Symbol stellt das Fenster wieder her.
+
+### Bildschirmtext (OCR)
+
+Klicken Sie in Szeptuchas Navigation auf **Bildschirmtext (OCR)** oder wählen Sie **OCR öffnen** im Infobereich. Drücken Sie `Win+Shift+Q` oder klicken Sie im OCR-Fenster auf die Schaltfläche zum Markieren und ziehen Sie über den Text auf einem Monitor. Bei aktivierter automatischer Kopierfunktion landet das Ergebnis in der Zwischenablage. Mit `Esc`, der rechten Maustaste oder erneutem Drücken des Tastenkürzels brechen Sie die Auswahl ab.
+
+OCR läuft lokal und erkennt Polnisch und Englisch. Das OCR-Fenster bietet eigene Einstellungen für Verlauf, optionales Speichern des Verlaufs, Textbereinigung und automatisches Kopieren. Die Tesseract-Sprachdaten sind in der Anwendung enthalten.
 
 ## Transkriptions-Engines
 
@@ -83,6 +90,7 @@ Die Einstellungen werden in der Datei `settings.json` im Datenverzeichnis der El
 - Zugriff auf ein Mikrofon,
 - Node.js und npm – nur zum Ausführen des Projekts aus dem Quellcode,
 - ein API-Schlüssel für OpenAI oder Google Gemini – nur für Cloud-Transkription und Textkorrektur.
+- Bildschirmzugriff für OCR; die Tesseract-Sprachdaten sind enthalten.
 
 ## Installation und Entwicklung
 
@@ -105,6 +113,8 @@ Die bereits erstellte Anwendung ohne Entwicklungsserver starten:
 ```powershell
 npm start
 ```
+
+`npm test` führt die OCR-Einheitstests aus. `npm run test:e2e:ocr` prüft Tastenkürzel, Bildschirmauswahl und Zwischenablage auf einem sichtbaren, entsperrten Desktop.
 
 ## Erstellen der Anwendung
 
@@ -129,6 +139,7 @@ npm run build:web
 |-- assets/             # Symbole für Anwendung und Installationsprogramm
 |-- electron/
 |   |-- main.cjs        # Fenster, Infobereich, Tastenkürzel, API, Zwischenablage und Dateispeicherung
+|   |-- ocr/            # lokale OCR, Bildschirmaufnahme und Ergebnisfenster
 |   `-- preload.cjs     # Aufnahme, lokales Whisper und sichere IPC-Schnittstelle
 |-- src/
 |   |-- main.tsx        # React-Oberfläche und Einstellungen
@@ -146,6 +157,7 @@ npm run build:web
 - lokales Whisper sendet keine Aufnahmen an externe APIs,
 - bei der Verwendung von OpenAI oder Gemini werden die Aufnahme oder der Text zur Verarbeitung an den ausgewählten Anbieter gesendet,
 - Transkriptionen werden lokal im konfigurierten Ordner gespeichert.
+- Bildschirmbilder werden lokal im Arbeitsspeicher verarbeitet, ohne Speicherung oder Upload. Der OCR-Verlauf bleibt standardmäßig im Speicher und kann optional lokal gespeichert werden.
 
 ## Lizenz
 

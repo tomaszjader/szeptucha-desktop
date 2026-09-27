@@ -12,6 +12,7 @@ interface NoteItem {
 
 interface Window {
   szeptucha: {
+    openOcr(): void;
     setTheme(theme: 'light' | 'dark'): void;
     getSettings(): Promise<Settings>;
     saveSettings(s: Settings): Promise<Settings>;

@@ -23,6 +23,7 @@ pnpm-debug.log*
 
 # Test coverage
 coverage/
+.test-cache/
 
 # Editor settings
 .idea/

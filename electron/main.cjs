@@ -15,11 +15,13 @@ const {
 const path = require("path"),
   fs = require("fs"),
   { spawn } = require("child_process");
+const ocr = require("./ocr/main/main.js");
 let win,
   recordingIndicator,
   tray,
   recording = false,
   pasteTranscription = false;
+let registeredHotkeys = [];
 const configPath = () => path.join(app.getPath("userData"), "settings.json");
 const { mainTranslations } = require("./translations.cjs");
 
@@ -331,21 +333,22 @@ function setRecordingState(active) {
   win?.webContents.send("recording:toggle", active);
 }
 function shortcuts() {
-  globalShortcut.unregisterAll();
+  for (const hotkey of registeredHotkeys) globalShortcut.unregister(hotkey);
+  registeredHotkeys = [];
   const s = settings();
   if (s.recordHotkey) {
     try {
-      globalShortcut.register(s.recordHotkey, () => {
+      if (globalShortcut.register(s.recordHotkey, () => {
         if (!recording) pasteTranscription = true;
         setRecordingState(!recording);
-      });
+      })) registeredHotkeys.push(s.recordHotkey);
     } catch (e) {
       console.error("Failed to register record hotkey:", e);
     }
   }
   if (s.correctHotkey) {
     try {
-      globalShortcut.register(s.correctHotkey, () => correctText());
+      if (globalShortcut.register(s.correctHotkey, () => correctText())) registeredHotkeys.push(s.correctHotkey);
     } catch (e) {
       console.error("Failed to register correct hotkey:", e);
     }
@@ -372,6 +375,9 @@ function trayMenu() {
           setRecordingState(!recording);
         },
       },
+      { type: "separator" },
+      { label: t.trayOcrOpen, click: () => ocr.show() },
+      { label: t.trayOcrCapture, click: () => ocr.capture() },
       { type: "separator" },
       {
         label: t.trayExit,
@@ -651,14 +657,17 @@ function getNotesFromFolder(folderPath) {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createWindow();
   createRecordingIndicator();
+  await ocr.init();
   trayMenu();
   shortcuts();
 });
 app.on("window-all-closed", () => {});
+app.on("before-quit", () => { app.isQuiting = true; });
 app.on("will-quit", () => globalShortcut.unregisterAll());
+ipcMain.on("ocr:show", (event) => { if (event.sender === win?.webContents) ocr.show(); });
 ipcMain.on("theme:set", (_, theme) => {
   if (!recordingIndicator || recordingIndicator.isDestroyed()) return;
   const safeTheme = theme === "dark" ? "dark" : "light";

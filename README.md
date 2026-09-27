@@ -19,6 +19,7 @@ Current version: **0.1.0**.
 - light and dark themes matching the system settings initially,
 - background operation via the system tray icon,
 - optional startup with Windows.
+- local OCR for a selected screen region with Tesseract.js (Polish and English), clipboard copying, history, and multiple-monitor support.
 
 ## How to Use
 
@@ -46,6 +47,12 @@ Default correction shortcut: `Ctrl+Q`.
 ### Background Operation
 
 Closing the main window hides the application instead of quitting it. From the system tray icon menu, you can open the window, start or stop recording, and exit Szeptucha completely. Double-clicking the icon restores the window.
+
+### Screen Text (OCR)
+
+Click **Screen text (OCR)** in Szeptucha's navigation or **Open OCR** in the tray menu. Press `Win+Shift+Q` or click the capture button in the OCR window, then drag over text on one monitor. The result is copied to the clipboard when automatic copying is enabled. Press `Esc`, right-click, or use the shortcut again to cancel.
+
+OCR runs locally and recognizes Polish and English. Its window has separate settings for history, optional history persistence, text normalization, and automatic copying. Tesseract's language data is bundled with the app.
 
 ## Transcription Engines
 
@@ -83,6 +90,7 @@ Settings are stored in the `settings.json` file in the Electron application data
 - microphone access,
 - Node.js and npm — only for running the project from source,
 - OpenAI or Google Gemini API key — only for cloud transcription and text correction.
+- screen access for OCR; Tesseract language data is bundled with the app.
 
 ## Installation and Development
 
@@ -105,6 +113,8 @@ Run the pre-built application without the development server:
 ```powershell
 npm start
 ```
+
+Run `npm test` for OCR unit tests. `npm run test:e2e:ocr` checks the global shortcut, screen selection, and clipboard on a visible, unlocked desktop.
 
 ## Building
 
@@ -129,6 +139,7 @@ npm run build:web
 |-- assets/             # application and installer icons
 |-- electron/
 |   |-- main.cjs        # windows, tray, shortcuts, API, clipboard, and file saving
+|   |-- ocr/            # local OCR, screen capture, and result window
 |   `-- preload.cjs     # recording, local Whisper, and secure IPC bridge
 |-- src/
 |   |-- main.tsx        # React interface and settings
@@ -146,6 +157,7 @@ npm run build:web
 - local Whisper does not send recordings to external APIs,
 - when using OpenAI or Gemini, the recording or text is sent to the chosen provider for processing,
 - transcriptions are saved locally in the configured folder.
+- screen images are processed locally in memory, without saving or uploading them. OCR history stays in memory by default and can optionally be saved locally.
 
 ## License
 

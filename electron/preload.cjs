@@ -139,6 +139,7 @@ function stop() {
 }
 
 contextBridge.exposeInMainWorld("szeptucha", {
+  openOcr: () => ipcRenderer.send("ocr:show"),
   setTheme: (theme) => ipcRenderer.send("theme:set", theme),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   saveSettings: (s) => ipcRenderer.invoke("settings:save", s),
