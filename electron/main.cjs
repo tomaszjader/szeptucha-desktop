@@ -421,9 +421,17 @@ async function aiCorrect(text, s) {
         temperature: 0,
       }),
     });
-    if (!r.ok)
-      throw new Error((await r.json()).error?.message || (lang === "pl" ? "Błąd OpenAI" : "OpenAI error"));
-    return (await r.json()).choices[0].message.content;
+    const payload = await readJsonResponse(r);
+    if (!r.ok) {
+      throw new Error(
+        apiErrorMessage(payload, lang === "pl" ? "Błąd OpenAI" : "OpenAI error"),
+      );
+    }
+    const corrected = payload?.choices?.[0]?.message?.content;
+    if (typeof corrected !== "string" || !corrected.trim()) {
+      throw new Error(lang === "pl" ? "OpenAI zwróciło pustą odpowiedź" : "OpenAI returned an empty response");
+    }
+    return corrected;
   }
   const model = s.model.startsWith("gemini") ? s.model : "gemini-2.0-flash";
   const r = await fetch(
@@ -437,8 +445,17 @@ async function aiCorrect(text, s) {
       }),
     },
   );
-  if (!r.ok) throw new Error((await r.json()).error?.message || (lang === "pl" ? "Błąd Gemini" : "Gemini error"));
-  return (await r.json()).candidates[0].content.parts[0].text;
+  const payload = await readJsonResponse(r);
+  if (!r.ok) {
+    throw new Error(
+      apiErrorMessage(payload, lang === "pl" ? "Błąd Gemini" : "Gemini error"),
+    );
+  }
+  const corrected = geminiText(payload);
+  if (!corrected) {
+    throw new Error(lang === "pl" ? "Gemini zwróciło pustą odpowiedź" : "Gemini returned an empty response");
+  }
+  return corrected;
 }
 function keys(action) {
   return new Promise((resolve, reject) => {
@@ -473,6 +490,29 @@ function keys(action) {
     }
   });
 }
+async function readJsonResponse(response) {
+  const raw = await response.text();
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function apiErrorMessage(payload, fallback) {
+  return payload?.error?.message || payload?.message || fallback;
+}
+
+function geminiText(payload) {
+  const parts = payload?.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) return "";
+  return parts
+    .map((part) => (typeof part?.text === "string" ? part.text : ""))
+    .join("")
+    .trim();
+}
+
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function correctText() {
   const s = settings();
@@ -559,11 +599,23 @@ async function transcribe(buf, mime) {
       headers: { Authorization: `Bearer ${s.apiKey}` },
       body: form,
     });
-    if (!r.ok)
+    const payload = await readJsonResponse(r);
+    if (!r.ok) {
       throw new Error(
-        (await r.json()).error?.message || (lang === "pl" ? "Błąd transkrypcji OpenAI" : "OpenAI transcription error"),
+        apiErrorMessage(
+          payload,
+          lang === "pl" ? "Błąd transkrypcji OpenAI" : "OpenAI transcription error",
+        ),
       );
-    text = (await r.json()).text;
+    }
+    if (typeof payload?.text !== "string" || !payload.text.trim()) {
+      throw new Error(
+        lang === "pl"
+          ? "OpenAI nie zwróciło transkrypcji"
+          : "OpenAI did not return a transcription",
+      );
+    }
+    text = payload.text;
   } else {
     const model = s.model.startsWith("gemini") ? s.model : "gemini-2.0-flash";
     
@@ -605,11 +657,23 @@ async function transcribe(buf, mime) {
         }),
       },
     );
-    if (!r.ok)
+    const payload = await readJsonResponse(r);
+    if (!r.ok) {
       throw new Error(
-        (await r.json()).error?.message || (lang === "pl" ? "Błąd transkrypcji Gemini" : "Gemini transcription error"),
+        apiErrorMessage(
+          payload,
+          lang === "pl" ? "Błąd transkrypcji Gemini" : "Gemini transcription error",
+        ),
       );
-    text = (await r.json()).candidates[0].content.parts[0].text;
+    }
+    text = geminiText(payload);
+    if (!text) {
+      throw new Error(
+        lang === "pl"
+          ? "Gemini nie zwróciło transkrypcji"
+          : "Gemini did not return a transcription",
+      );
+    }
   }
   return saveTranscription(text, s);
 }
