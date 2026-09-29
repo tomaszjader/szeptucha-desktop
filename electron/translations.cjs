@@ -2,6 +2,7 @@ const mainTranslations = {
   pl: {
     statusWhisperLoad: "Ładuję lokalny model Whisper…",
     statusWhisperTranscribe: "Transkrybuję lokalnie…",
+    trayTranscribing: "Przetwarzam nagranie…",
     statusNoApiKey: "Najpierw podaj klucz API",
     statusNoApiKeySettings: "Najpierw podaj klucz API w ustawieniach",
     statusSelectText: "Zaznacz tekst do poprawienia",
@@ -25,6 +26,7 @@ const mainTranslations = {
   en: {
     statusWhisperLoad: "Loading local Whisper model…",
     statusWhisperTranscribe: "Transcribing locally…",
+    trayTranscribing: "Processing recording…",
     statusNoApiKey: "Please enter your API key first",
     statusNoApiKeySettings: "Please enter your API key in settings first",
     statusSelectText: "Select text to correct",
@@ -48,6 +50,7 @@ const mainTranslations = {
   de: {
     statusWhisperLoad: "Lokales Whisper-Modell wird geladen…",
     statusWhisperTranscribe: "Lokale Transkription läuft…",
+    trayTranscribing: "Aufnahme wird verarbeitet…",
     statusNoApiKey: "Bitte zuerst den API-Schlüssel eingeben",
     statusNoApiKeySettings: "Bitte zuerst den API-Schlüssel in den Einstellungen eingeben",
     statusSelectText: "Text zum Korrigieren markieren",
@@ -71,6 +74,7 @@ const mainTranslations = {
   ru: {
     statusWhisperLoad: "Загрузка локальной модели Whisper…",
     statusWhisperTranscribe: "Локальная транскрипция…",
+    trayTranscribing: "Обработка записи…",
     statusNoApiKey: "Сначала введите ключ API",
     statusNoApiKeySettings: "Сначала введите ключ API в настройках",
     statusSelectText: "Выделите текст для исправления",

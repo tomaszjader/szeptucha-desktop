@@ -1,10 +1,12 @@
 import React from "react";
-import { Mic, StopCircle, Sparkles, Keyboard, FolderOpen } from "lucide-react";
+import { LoaderCircle, Mic, StopCircle, Sparkles, Keyboard, FolderOpen } from "lucide-react";
 import { translations, type AppLanguage } from "../translations";
 import { useAudioLevel } from "../hooks/useAudioLevel";
 
 interface RecorderProps {
   recording: boolean;
+  recordingState: RecordingStatus;
+  elapsedMs: number;
   onToggleRecording: () => void;
   s: Settings;
   lang: AppLanguage;
@@ -15,6 +17,8 @@ interface RecorderProps {
 
 export const Recorder: React.FC<RecorderProps> = ({
   recording,
+  recordingState,
+  elapsedMs,
   onToggleRecording,
   s,
   lang,
@@ -24,6 +28,29 @@ export const Recorder: React.FC<RecorderProps> = ({
 }) => {
   const t = translations[lang];
   const audioLevel = useAudioLevel(recording);
+  const busy = ["starting", "transcribing", "loading-model"].includes(recordingState.phase);
+  const statusText = recordingState.phase === "starting"
+    ? t.startingRecording
+    : recordingState.phase === "loading-model"
+      ? t.loadingWhisper
+      : recordingState.phase === "transcribing"
+        ? t.transcribingRecording
+        : recordingState.phase === "error"
+          ? recordingState.error || t.failedToRecord
+          : recording
+            ? t.recordingActive
+            : null;
+  const formattedDuration = `${String(Math.floor(elapsedMs / 60000)).padStart(2, "0")}:${String(Math.floor(elapsedMs / 1000) % 60).padStart(2, "0")}`;
+  const showDuration = recordingState.startedAt !== null
+    && (recording || recordingState.durationMs > 0);
+  const heading = recording ? t.recordingActive : busy ? statusText : t.readyToListen;
+  const description = recording
+    ? t.recordingActiveDesc
+    : recordingState.phase === "error"
+      ? recordingState.error || t.failedToRecord
+      : busy
+        ? ""
+        : t.readyToListenDesc;
 
   // Dynamic scale calculation based on real-time microphone volume (1.0 to 1.35)
   const orbScale = recording ? 1 + (audioLevel / 100) * 0.35 : 1;
@@ -48,12 +75,56 @@ export const Recorder: React.FC<RecorderProps> = ({
               opacity: recording ? 0.5 + (audioLevel / 100) * 0.5 : 0.3,
             }}
           />
-          <button onClick={onToggleRecording} aria-label={recording ? t.recordingActive : t.readyToListen}>
-            {recording ? <StopCircle /> : <Mic />}
+          <button
+            onClick={onToggleRecording}
+            disabled={busy}
+            aria-label={recording ? t.recordingActive : t.readyToListen}
+            aria-busy={busy}
+          >
+            {busy ? <LoaderCircle className="recording-spinner" /> : recording ? <StopCircle /> : <Mic />}
           </button>
         </div>
-        <h2>{recording ? t.recordingActive : t.readyToListen}</h2>
-        <p>{recording ? t.recordingActiveDesc : t.readyToListenDesc}</p>
+        <h2 aria-live="polite">{heading}</h2>
+        {description && (
+          <p
+            className={recordingState.phase === "error" ? "recording-error" : ""}
+            role={recordingState.phase === "error" ? "alert" : undefined}
+            aria-live={recordingState.phase === "error" ? "assertive" : undefined}
+          >
+            {description}
+          </p>
+        )}
+
+        {showDuration && (
+          <div className="recording-duration" aria-label={`${t.recordingDuration}: ${formattedDuration}`}>
+            {t.recordingDuration}: <span>{formattedDuration}</span>
+          </div>
+        )}
+
+        {recordingState.phase === "loading-model" && (
+          <div className="model-progress" role="status" aria-live="polite">
+            <span>{recordingState.downloadProgress === null ? t.startingWhisper : t.loadingWhisper}</span>
+            {recordingState.downloadProgress === null ? (
+              <div className="model-progress-track indeterminate" aria-hidden="true">
+                <div className="model-progress-fill" />
+              </div>
+            ) : (
+              <div className="model-progress-row">
+                <div
+                  className="model-progress-track"
+                  role="progressbar"
+                  aria-label={t.loadingWhisper}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={recordingState.downloadProgress}
+                >
+                  <div className="model-progress-fill" style={{ width: `${recordingState.downloadProgress}%` }} />
+                </div>
+                <span>{recordingState.downloadProgress}%</span>
+              </div>
+            )}
+          </div>
+        )}
         
         {recording && (
           <div className="audio-meter">

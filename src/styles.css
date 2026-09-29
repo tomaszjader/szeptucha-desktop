@@ -315,6 +315,16 @@ header p {
 .orb button:hover {
   transform: scale(1.05);
 }
+.orb button:disabled {
+  cursor: wait;
+  opacity: 0.9;
+}
+.recording-spinner {
+  animation: recording-spin 1.2s linear infinite;
+}
+@keyframes recording-spin {
+  to { transform: rotate(360deg); }
+}
 .orb button svg {
   width: 29px;
 }
@@ -350,6 +360,62 @@ header p {
   color: #8a8490;
   font-size: 13px;
   margin-bottom: 12px;
+}
+.recorder p.recording-error {
+  color: #bb4141;
+}
+[data-theme="dark"] .recorder p.recording-error {
+  color: #f28a8a;
+}
+.recording-duration {
+  color: #756d7f;
+  font-size: 11px;
+  margin: 0 0 6px;
+}
+.recording-duration span {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+[data-theme="dark"] .recording-duration {
+  color: #aaa3b2;
+}
+.model-progress {
+  display: grid;
+  gap: 7px;
+  width: min(360px, calc(100% - 48px));
+  color: #756d7f;
+  font-size: 11px;
+  margin: 2px 0 9px;
+}
+.model-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.model-progress-track {
+  height: 7px;
+  flex: 1;
+  overflow: hidden;
+  background: rgba(128, 82, 199, 0.15);
+  border-radius: 99px;
+}
+.model-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #956bdd, #7043c1, #ee7777);
+  transition: width 180ms ease-out;
+}
+.model-progress-track.indeterminate .model-progress-fill {
+  width: 38%;
+  animation: model-progress-slide 1.3s ease-in-out infinite alternate;
+}
+@keyframes model-progress-slide {
+  from { transform: translateX(-65%); }
+  to { transform: translateX(220%); }
+}
+[data-theme="dark"] .model-progress {
+  color: #aaa3b2;
 }
 kbd {
   font: 600 11px "DM Sans";

@@ -17,10 +17,10 @@ interface Window {
     getSettings(): Promise<Settings>;
     saveSettings(s: Settings): Promise<Settings>;
     chooseFolder(): Promise<string | null>;
-    startRecording(): Promise<void>;
-    stopRecording(): Promise<{ text: string; path: string }>;
+    toggleRecording(): Promise<{ text: string; path: string } | undefined>;
     correctSelection(): Promise<{ ok: boolean; message: string }>;
-    onRecordingToggle(cb: (active: boolean) => void): () => void;
+    getRecordingState(): RecordingStatus;
+    onRecordingState(cb: (state: RecordingStatus) => void): () => void;
     onStatus(cb: (s: { type: string; message: string }) => void): () => void;
     openFolder(): Promise<void>;
     getNotes(): Promise<NoteItem[]>;
@@ -28,6 +28,15 @@ interface Window {
     deleteNote(filePath: string): Promise<boolean>;
   };
 }
+
+type RecordingStatus = {
+  phase: 'idle' | 'starting' | 'recording' | 'transcribing' | 'loading-model' | 'completed' | 'error';
+  source: 'interface' | 'shortcut' | 'tray';
+  startedAt: number | null;
+  durationMs: number;
+  downloadProgress: number | null;
+  error: string | null;
+};
 
 interface Settings {
   provider: 'openai' | 'gemini' | 'local';

@@ -35,7 +35,8 @@ function App() {
   });
 
   const [s, setS] = useState<Settings>(defaults);
-  const [recording, setRecording] = useState(false);
+  const [recordingState, setRecordingState] = useState<RecordingStatus>(() => window.szeptucha.getRecordingState());
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const [currentTab, setCurrentTab] = useState<"recording" | "history" | "settings">("recording");
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<"info" | "success" | "error">("info");
@@ -74,16 +75,31 @@ function App() {
       setReady(true);
     });
 
-    const cleanup = window.szeptucha.onRecordingToggle((active) => {
-      setRecording(active);
-      if (s.soundEnabled ?? true) {
-        if (active) playStartChime();
-        else playStopChime();
-      }
-    });
+  }, []);
 
-    return cleanup;
+  const soundEnabled = useRef(s.soundEnabled ?? true);
+  useEffect(() => {
+    soundEnabled.current = s.soundEnabled ?? true;
   }, [s.soundEnabled]);
+
+  useEffect(() => {
+    let previousPhase: RecordingStatus["phase"] = "idle";
+    return window.szeptucha.onRecordingState((next) => {
+      if (previousPhase !== next.phase && soundEnabled.current) {
+        if (next.phase === "recording") playStartChime();
+        if (previousPhase === "recording") playStopChime();
+      }
+      previousPhase = next.phase;
+      setRecordingState(next);
+    });
+  }, []);
+
+  const recording = recordingState.phase === "recording";
+  useEffect(() => {
+    if (!recording) return;
+    const timer = setInterval(() => setClockNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [recording]);
 
   useEffect(() => {
     return window.szeptucha.onStatus((x) => {
@@ -110,20 +126,7 @@ function App() {
   };
 
   const toggleRecording = async () => {
-    try {
-      if (recording) {
-        setRecording(false);
-        if (s.soundEnabled ?? true) playStopChime();
-        await window.szeptucha.stopRecording();
-      } else {
-        setRecording(true);
-        if (s.soundEnabled ?? true) playStartChime();
-        await window.szeptucha.startRecording();
-      }
-    } catch (e) {
-      setRecording(false);
-      showToast(e instanceof Error ? e.message : t.failedToRecord, "error");
-    }
+    await window.szeptucha.toggleRecording();
   };
 
   if (!ready) {
@@ -166,6 +169,10 @@ function App() {
         {currentTab === "recording" && (
           <Recorder
             recording={recording}
+            recordingState={recordingState}
+            elapsedMs={recording && recordingState.startedAt !== null
+              ? Math.max(0, clockNow - recordingState.startedAt)
+              : recordingState.durationMs}
             onToggleRecording={toggleRecording}
             s={s}
             lang={currentLang}

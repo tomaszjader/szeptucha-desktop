@@ -20,6 +20,7 @@ let win,
   recordingIndicator,
   tray,
   recording = false,
+  recordingBusy = false,
   pasteTranscription = false;
 let registeredHotkeys = [];
 const configPath = () => path.join(app.getPath("userData"), "settings.json");
@@ -326,11 +327,9 @@ function showRecordingIndicator(active) {
   );
   recordingIndicator.showInactive();
 }
-function setRecordingState(active) {
-  recording = active;
-  showRecordingIndicator(active);
-  trayMenu();
-  win?.webContents.send("recording:toggle", active);
+function requestRecordingToggle(source) {
+  if (recordingBusy && !recording) return;
+  win?.webContents.send("recording:toggle", source);
 }
 function shortcuts() {
   for (const hotkey of registeredHotkeys) globalShortcut.unregister(hotkey);
@@ -338,10 +337,7 @@ function shortcuts() {
   const s = settings();
   if (s.recordHotkey) {
     try {
-      if (globalShortcut.register(s.recordHotkey, () => {
-        if (!recording) pasteTranscription = true;
-        setRecordingState(!recording);
-      })) registeredHotkeys.push(s.recordHotkey);
+      if (globalShortcut.register(s.recordHotkey, () => requestRecordingToggle("shortcut"))) registeredHotkeys.push(s.recordHotkey);
     } catch (e) {
       console.error("Failed to register record hotkey:", e);
     }
@@ -364,15 +360,17 @@ function trayMenu() {
       .createFromPath(asset("icon.png"))
       .resize({ width: 20, height: 20 });
     tray = new Tray(icon);
+    tray.on("double-click", () => win.show());
   }
   tray.setToolTip(recording ? `Szeptucha (${t.recordingActive || "Nagrywam..."})` : "Szeptucha");
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: t.trayOpen, click: () => win.show() },
       {
-        label: recording ? t.trayStop : t.trayRecord,
+        label: recording ? t.trayStop : recordingBusy ? t.trayTranscribing : t.trayRecord,
+        enabled: !recordingBusy || recording,
         click: () => {
-          setRecordingState(!recording);
+          requestRecordingToggle("tray");
         },
       },
       { type: "separator" },
@@ -388,7 +386,6 @@ function trayMenu() {
       },
     ]),
   );
-  tray.on("double-click", () => win.show());
 }
 async function aiCorrect(text, s) {
   const lang = getLang(s);
@@ -782,10 +779,17 @@ ipcMain.handle("notes:delete", (_, filePath) => {
   }
   return false;
 });
-ipcMain.on("recording:state", (_, v) => {
-  recording = v;
-  showRecordingIndicator(v);
-  trayMenu();
+ipcMain.on("recording:state", (_, state) => {
+  const nextState = state && typeof state === "object" ? state : {};
+  const wasRecording = recording;
+  const wasBusy = recordingBusy;
+  const phase = nextState.phase;
+  recording = phase === "recording";
+  recordingBusy = ["starting", "recording", "transcribing", "loading-model"].includes(phase);
+  if (phase === "starting") pasteTranscription = nextState.source === "shortcut";
+  if (phase === "completed" || phase === "error") pasteTranscription = false;
+  if (wasRecording !== recording) showRecordingIndicator(recording);
+  if (wasRecording !== recording || wasBusy !== recordingBusy) trayMenu();
 });
 ipcMain.on("transcription:status", (_, message) => status("info", message));
 ipcMain.handle("transcription:paste", async (_, text) => {
@@ -803,6 +807,7 @@ ipcMain.handle("transcription:paste", async (_, text) => {
 });
 ipcMain.on("recording:error", (_, m) => {
   recording = false;
+  recordingBusy = false;
   pasteTranscription = false;
   showRecordingIndicator(false);
   trayMenu();
