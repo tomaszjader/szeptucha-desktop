@@ -964,6 +964,21 @@ select:focus {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 18px;
 }
+.history-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #817987;
+  font-size: 13px;
+}
+.history-pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+[data-theme="dark"] .history-pagination {
+  color: #aaa3b2;
+}
 .note-card {
   background: #fff;
   border: 1px solid #e2ddd7;

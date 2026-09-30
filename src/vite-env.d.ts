@@ -3,11 +3,18 @@
 interface NoteItem {
   id: string;
   filename: string;
-  path: string;
   text: string;
+  truncated: boolean;
   createdAt: string;
   format: 'txt' | 'md' | 'json';
   sizeBytes: number;
+}
+
+interface NotesPage {
+  items: NoteItem[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 interface Window {
@@ -23,9 +30,9 @@ interface Window {
     onRecordingState(cb: (state: RecordingStatus) => void): () => void;
     onStatus(cb: (s: { type: string; message: string }) => void): () => void;
     openFolder(): Promise<void>;
-    getNotes(): Promise<NoteItem[]>;
-    readNote(filePath: string): Promise<string>;
-    deleteNote(filePath: string): Promise<boolean>;
+    getNotes(options: { page: number; search: string }): Promise<NotesPage>;
+    readNote(fileName: string): Promise<string>;
+    deleteNote(fileName: string): Promise<boolean>;
   };
 }
 

@@ -23,6 +23,7 @@ let win,
   recordingBusy = false,
   pasteTranscription = false;
 let registeredHotkeys = [];
+let activeNotesRequest = null;
 const configPath = () => path.join(app.getPath("userData"), "settings.json");
 const { mainTranslations } = require("./translations.cjs");
 
@@ -71,6 +72,10 @@ const providerModels = {
 };
 const MAX_TEXT_LENGTH = 1_000_000;
 const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
+const MAX_NOTE_READ_BYTES = 10 * 1024 * 1024;
+const MAX_NOTE_PREVIEW_BYTES = 16 * 1024;
+const MAX_NOTE_PREVIEW_LENGTH = 4_000;
+const NOTES_PAGE_SIZE = 24;
 const DEFAULT_AUDIO_MIME = "audio/webm";
 
 function normalizeAudioMime(value) {
@@ -675,46 +680,156 @@ async function transcribe(buf, mime) {
   return saveTranscription(text, s);
 }
 
-function getNotesFromFolder(folderPath) {
-  if (!folderPath || !fs.existsSync(folderPath)) return [];
-  try {
-    const files = fs.readdirSync(folderPath);
-    const notes = [];
-    for (const file of files) {
-      const ext = path.extname(file).toLowerCase().slice(1);
-      if (!["md", "txt", "json"].includes(ext)) continue;
-      const filePath = path.join(folderPath, file);
-      const stat = fs.statSync(filePath);
-      if (!stat.isFile()) continue;
-
-      let preview = "";
-      try {
-        const raw = fs.readFileSync(filePath, "utf8");
-        if (ext === "json") {
-          const parsed = JSON.parse(raw);
-          preview = parsed.text || raw;
-        } else {
-          preview = raw.replace(/^#\s*Notatka[^\n]*\n+/i, "");
-        }
-      } catch {
-        preview = "";
-      }
-
-      notes.push({
-        id: file,
-        filename: file,
-        path: filePath,
-        text: preview.trim(),
-        createdAt: stat.mtime.toISOString(),
-        format: ext,
-        sizeBytes: stat.size,
-      });
+function noteText(raw, format) {
+  if (format === "json") {
+    try {
+      const parsed = JSON.parse(raw);
+      return typeof parsed?.text === "string" ? parsed.text : raw;
+    } catch {
+      // A preview can end in the middle of a JSON document. Recover the text
+      // field prefix so long JSON notes still have useful cards in the list.
+      const encoded = /"text"\s*:\s*"((?:\\.|[^"\\])*)/.exec(raw)?.[1];
+      if (encoded === undefined) return raw;
+      try { return JSON.parse(`"${encoded}"`); } catch { return raw; }
     }
-    notes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    return notes;
+  }
+  return format === "md" ? raw.replace(/^#\s*Notatka[^\n]*\n+/i, "") : raw;
+}
+
+async function readNotePrefix(filePath, format, fileSize, signal) {
+  if (fileSize === 0) return { text: "", truncated: false };
+  const stream = fs.createReadStream(filePath, {
+    encoding: "utf8",
+    start: 0,
+    end: Math.min(fileSize, MAX_NOTE_PREVIEW_BYTES) - 1,
+    signal,
+  });
+  let raw = "";
+  for await (const chunk of stream) raw += chunk;
+  const text = noteText(raw, format).trim();
+  return {
+    text: text.slice(0, MAX_NOTE_PREVIEW_LENGTH),
+    truncated: fileSize > MAX_NOTE_PREVIEW_BYTES || text.length > MAX_NOTE_PREVIEW_LENGTH,
+  };
+}
+
+async function noteContains(filePath, fileSize, query, signal) {
+  if (!query) return true;
+  if (fileSize === 0) return false;
+  const stream = fs.createReadStream(filePath, {
+    encoding: "utf8",
+    start: 0,
+    end: Math.min(fileSize, MAX_NOTE_READ_BYTES) - 1,
+    signal,
+  });
+  let carry = "";
+  const overlap = query.length - 1;
+  for await (const chunk of stream) {
+    const current = carry + chunk.toLowerCase();
+    if (current.includes(query)) return true;
+    carry = overlap > 0 ? current.slice(-overlap) : "";
+  }
+  return false;
+}
+
+async function getNotesFromFolder(folderPath, options = {}, signal) {
+  const request = options && typeof options === "object" ? options : {};
+  const requestedPage = Number.isSafeInteger(request.page) ? Math.max(0, request.page) : 0;
+  const pageSize = NOTES_PAGE_SIZE;
+  const query = typeof request.search === "string"
+    ? request.search.trim().slice(0, 200).toLowerCase()
+    : "";
+  if (!folderPath) return { items: [], total: 0, page: 0, pageSize };
+
+  try {
+    const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
+    if (signal?.aborted) return { items: [], total: 0, page: 0, pageSize };
+    const notes = [];
+    for (const entry of entries) {
+      if (signal?.aborted) return { items: [], total: 0, page: 0, pageSize };
+      if (!entry.isFile()) continue;
+      const ext = path.extname(entry.name).toLowerCase().slice(1);
+      if (!["md", "txt", "json"].includes(ext)) continue;
+      const filePath = path.join(folderPath, entry.name);
+      try {
+        const stat = await fs.promises.stat(filePath);
+        notes.push({
+          id: entry.name,
+          filename: entry.name,
+          createdAt: stat.mtime.toISOString(),
+          format: ext,
+          sizeBytes: stat.size,
+          filePath,
+        });
+      } catch {
+        // A note may be removed while the history is being refreshed.
+      }
+    }
+    notes.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+    let matching = notes;
+    if (query) {
+      matching = [];
+      for (const note of notes) {
+        if (signal?.aborted) return { items: [], total: 0, page: 0, pageSize };
+        if (note.filename.toLowerCase().includes(query)) {
+          matching.push(note);
+          continue;
+        }
+        try {
+          if (await noteContains(note.filePath, note.sizeBytes, query, signal)) matching.push(note);
+        } catch {
+          if (signal?.aborted) return { items: [], total: 0, page: 0, pageSize };
+          // Ignore unreadable files and keep the rest of the history searchable.
+        }
+      }
+    }
+
+    const total = matching.length;
+    const page = Math.min(requestedPage, Math.max(0, Math.ceil(total / pageSize) - 1));
+    const pageNotes = matching.slice(page * pageSize, (page + 1) * pageSize);
+    const items = await Promise.all(pageNotes.map(async note => {
+      let preview = { text: "", truncated: note.sizeBytes > MAX_NOTE_PREVIEW_BYTES };
+      try { preview = await readNotePrefix(note.filePath, note.format, note.sizeBytes, signal); } catch {}
+      const { filePath, ...publicNote } = note;
+      return { ...publicNote, ...preview };
+    }));
+    if (signal?.aborted) return { items: [], total: 0, page: 0, pageSize };
+    return { items, total, page, pageSize };
   } catch (e) {
     console.error("Error reading notes:", e);
-    return [];
+    return { items: [], total: 0, page: 0, pageSize };
+  }
+}
+
+async function noteFilePath(fileName) {
+  if (typeof fileName !== "string" || !fileName || path.basename(fileName) !== fileName) {
+    throw new Error("Invalid note name");
+  }
+  const ext = path.extname(fileName).toLowerCase();
+  if (![".md", ".txt", ".json"].includes(ext)) throw new Error("Invalid note type");
+  const folderPath = settings().folder;
+  if (!folderPath) throw new Error("Notes folder is unavailable");
+  const filePath = path.join(folderPath, fileName);
+  const stat = await fs.promises.lstat(filePath);
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("Invalid note file");
+  return { filePath, stat, format: ext.slice(1) };
+}
+
+async function readNote(fileName) {
+  const { filePath, stat, format } = await noteFilePath(fileName);
+  if (stat.size > MAX_NOTE_READ_BYTES) throw new Error("Note is too large to open");
+  return noteText(await fs.promises.readFile(filePath, "utf8"), format);
+}
+
+async function deleteNote(fileName) {
+  try {
+    const { filePath } = await noteFilePath(fileName);
+    await fs.promises.unlink(filePath);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
   }
 }
 
@@ -764,21 +879,19 @@ ipcMain.handle("transcription:save", (_, text) => {
   return saveTranscription(text, s);
 });
 ipcMain.handle("text:correct", () => correctText());
-ipcMain.handle("notes:get", () => {
-  const s = settings();
-  return getNotesFromFolder(s.folder);
-});
-ipcMain.handle("notes:read", (_, filePath) => {
-  if (!filePath || !fs.existsSync(filePath)) throw new Error("File not found");
-  return fs.readFileSync(filePath, "utf8");
-});
-ipcMain.handle("notes:delete", (_, filePath) => {
-  if (filePath && fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-    return true;
+ipcMain.handle("notes:get", async (_, options) => {
+  activeNotesRequest?.abort();
+  const request = new AbortController();
+  activeNotesRequest = request;
+  try {
+    const s = settings();
+    return await getNotesFromFolder(s.folder, options, request.signal);
+  } finally {
+    if (activeNotesRequest === request) activeNotesRequest = null;
   }
-  return false;
 });
+ipcMain.handle("notes:read", (_, fileName) => readNote(fileName));
+ipcMain.handle("notes:delete", (_, fileName) => deleteNote(fileName));
 ipcMain.on("recording:state", (_, state) => {
   const nextState = state && typeof state === "object" ? state : {};
   const wasRecording = recording;
