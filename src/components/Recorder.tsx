@@ -1,7 +1,6 @@
 import React from "react";
 import { LoaderCircle, Mic, StopCircle, Sparkles, Keyboard, FolderOpen } from "lucide-react";
 import { translations, type AppLanguage } from "../translations";
-import { useAudioLevel } from "../hooks/useAudioLevel";
 
 interface RecorderProps {
   recording: boolean;
@@ -27,7 +26,7 @@ export const Recorder: React.FC<RecorderProps> = ({
   onCorrectText,
 }) => {
   const t = translations[lang];
-  const audioLevel = useAudioLevel(recording);
+  const audioLevel = recording ? recordingState.audioLevel : 0;
   const busy = ["starting", "transcribing", "loading-model"].includes(recordingState.phase);
   const statusText = recordingState.phase === "starting"
     ? t.startingRecording

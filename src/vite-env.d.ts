@@ -42,6 +42,7 @@ type RecordingStatus = {
   startedAt: number | null;
   durationMs: number;
   downloadProgress: number | null;
+  audioLevel: number;
   error: string | null;
 };
 
