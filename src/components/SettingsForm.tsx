@@ -6,11 +6,12 @@ import { HotkeyInput } from "./HotkeyInput";
 interface SettingsFormProps {
   s: Settings;
   setS: React.Dispatch<React.SetStateAction<Settings>>;
-  onSave: (next?: Settings) => void;
+  onSave: (next?: Settings) => Promise<void>;
+  isSaving: boolean;
   lang: AppLanguage;
 }
 
-export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, lang }) => {
+export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, isSaving, lang }) => {
   const [showKey, setShowKey] = useState(false);
   const t = translations[lang];
 
@@ -199,9 +200,9 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, lan
         </label>
       </fieldset>
 
-      <button className="primary" onClick={() => onSave()}>
+      <button className="primary" disabled={isSaving} aria-busy={isSaving} onClick={() => void onSave()}>
         <Check />
-        {t.saveSettingsBtn}
+        {isSaving ? t.savingSettings : t.saveSettingsBtn}
       </button>
     </section>
   );

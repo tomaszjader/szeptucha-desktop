@@ -794,6 +794,18 @@ select:focus {
   place-items: center;
   color: #8052c7;
 }
+.loading-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  color: #bd4242;
+  text-align: center;
+  padding: 24px;
+}
+.loading-error p {
+  margin: 0;
+}
 @media (max-width: 1050px) {
   aside {
     width: 210px;

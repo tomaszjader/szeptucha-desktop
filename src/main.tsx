@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Moon, Sun } from "lucide-react";
 import "./styles.css";
@@ -41,8 +41,11 @@ function App() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<"info" | "success" | "error">("info");
   const [ready, setReady] = useState(false);
+  const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settingsSaveInFlight = useRef(false);
 
   const browserLanguage = navigator.language.toLowerCase();
   const systemLang = browserLanguage.startsWith("pl")
@@ -69,13 +72,21 @@ function App() {
     window.szeptucha.setTheme(theme);
   }, [theme]);
 
-  useEffect(() => {
-    window.szeptucha.getSettings().then((x) => {
-      setS(x);
+  const loadSettings = useCallback(async () => {
+    setReady(false);
+    setSettingsLoadFailed(false);
+    try {
+      const loaded = await window.szeptucha.getSettings();
+      setS(loaded);
       setReady(true);
-    });
-
+    } catch {
+      setSettingsLoadFailed(true);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadSettings();
+  }, [loadSettings]);
 
   const soundEnabled = useRef(s.soundEnabled ?? true);
   useEffect(() => {
@@ -115,14 +126,28 @@ function App() {
   }, []);
 
   const saveSettings = async (next = s) => {
-    const saved = await window.szeptucha.saveSettings(next);
-    setS(saved);
-    showToast(t.settingsSaved, "success", 2500);
+    if (settingsSaveInFlight.current) return;
+    settingsSaveInFlight.current = true;
+    setSettingsSaving(true);
+    try {
+      const saved = await window.szeptucha.saveSettings(next);
+      setS(saved);
+      showToast(t.settingsSaved, "success", 2500);
+    } catch {
+      showToast(t.settingsSaveFailed, "error");
+    } finally {
+      settingsSaveInFlight.current = false;
+      setSettingsSaving(false);
+    }
   };
 
   const chooseFolder = async () => {
-    const folder = await window.szeptucha.chooseFolder();
-    if (folder) saveSettings({ ...s, folder });
+    try {
+      const folder = await window.szeptucha.chooseFolder();
+      if (folder) await saveSettings({ ...s, folder });
+    } catch {
+      showToast(t.folderChooseFailed, "error");
+    }
   };
 
   const toggleRecording = async () => {
@@ -130,8 +155,19 @@ function App() {
   };
 
   if (!ready) {
-    const loadingText = translations[systemLang].wakingUp;
-    return <div className="loading">{loadingText}</div>;
+    const loadingTranslations = translations[systemLang];
+    return (
+      <div className="loading">
+        {settingsLoadFailed ? (
+          <div className="loading-error" role="alert">
+            <p>{loadingTranslations.settingsLoadFailed}</p>
+            <button className="secondary" onClick={() => void loadSettings()}>
+              {loadingTranslations.retry}
+            </button>
+          </div>
+        ) : loadingTranslations.wakingUp}
+      </div>
+    );
   }
 
   return (
@@ -195,6 +231,7 @@ function App() {
             s={s}
             setS={setS}
             onSave={saveSettings}
+            isSaving={settingsSaving}
             lang={currentLang}
           />
         )}
