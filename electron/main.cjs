@@ -26,6 +26,12 @@ let registeredHotkeys = [];
 let activeNotesRequest = null;
 const configPath = () => path.join(app.getPath("userData"), "settings.json");
 const { mainTranslations } = require("./translations.cjs");
+const {
+  createDefaultSettings,
+  sanitizeSettings: sanitizeSettingsValue,
+  createSettingsStore,
+} = require("./settings.cjs");
+const { correctTextWithApi, transcribeAudioWithApi } = require("./ai-api.cjs");
 
 function getSystemLanguage() {
   const locale = app.getLocale();
@@ -44,32 +50,16 @@ function getLang(s) {
   return langSetting;
 }
 
-const defaults = {
-  provider: "openai",
-  apiKey: "",
-  model: "gpt-4o-mini-transcribe",
-  whisperModel: "whisper-tiny",
-  folder: path.join(app.getPath("documents"), "Szeptucha"),
-  format: "md",
-  recordHotkey: "CommandOrControl+Shift+R",
-  correctHotkey: "CommandOrControl+Q",
-  launchAtStartup: false,
-  language: "auto",
-  saveFromInterface: true,
-  saveFromShortcut: true,
-  appLanguage: "system",
-  soundEnabled: true,
-};
-const providers = new Set(["openai", "gemini", "local"]);
-const formats = new Set(["md", "txt", "json"]);
-const appLanguages = new Set(["system", "pl", "en", "de", "ru"]);
-const recordingLanguages = new Set(["auto", "pl", "en", "de", "ru"]);
-const whisperModels = new Set(["whisper-tiny", "whisper-base", "whisper-small"]);
-const providerModels = {
-  openai: new Set(["gpt-4o-mini-transcribe"]),
-  gemini: new Set(["gemini-2.0-flash"]),
-  local: new Set(["whisper-tiny", "whisper-base", "whisper-small"]),
-};
+const defaults = createDefaultSettings(
+  path.join(app.getPath("documents"), "Szeptucha"),
+);
+const sanitizeSettings = value => sanitizeSettingsValue(value, defaults);
+const settingsStore = createSettingsStore({
+  getConfigPath: configPath,
+  defaults,
+  safeStorage,
+  fs,
+});
 const MAX_TEXT_LENGTH = 1_000_000;
 const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
 const MAX_NOTE_READ_BYTES = 10 * 1024 * 1024;
@@ -88,93 +78,11 @@ function normalizeAudioMime(value) {
   return /^audio\/[\w.+-]+$/.test(mediaType) ? mediaType : null;
 }
 
-function limitedString(value, fallback, maxLength = 500) {
-  return typeof value === "string" && value.length <= maxLength
-    ? value
-    : fallback;
-}
-function sanitizeSettings(value = {}) {
-  const source = value && typeof value === "object" ? value : {};
-  const provider = providers.has(source.provider)
-    ? source.provider
-    : defaults.provider;
-  const requestedModel = limitedString(source.model, "", 200);
-  const model = providerModels[provider].has(requestedModel)
-    ? requestedModel
-    : provider === "openai"
-      ? "gpt-4o-mini-transcribe"
-      : provider === "gemini"
-        ? "gemini-2.0-flash"
-        : "whisper-tiny";
-  const requestedFolder = limitedString(source.folder, defaults.folder, 32_000);
-  return {
-    ...defaults,
-    provider,
-    apiKey: limitedString(source.apiKey, "", 10_000).trim(),
-    model,
-    whisperModel: whisperModels.has(source.whisperModel)
-      ? source.whisperModel
-      : defaults.whisperModel,
-    folder: path.isAbsolute(requestedFolder) ? requestedFolder : defaults.folder,
-    format: formats.has(source.format) ? source.format : defaults.format,
-    recordHotkey: limitedString(source.recordHotkey, defaults.recordHotkey, 200),
-    correctHotkey: limitedString(source.correctHotkey, defaults.correctHotkey, 200),
-    launchAtStartup: Boolean(source.launchAtStartup),
-    language: recordingLanguages.has(source.language)
-      ? source.language
-      : defaults.language,
-    saveFromInterface:
-      typeof source.saveFromInterface === "boolean"
-        ? source.saveFromInterface
-        : defaults.saveFromInterface,
-    saveFromShortcut:
-      typeof source.saveFromShortcut === "boolean"
-        ? source.saveFromShortcut
-        : defaults.saveFromShortcut,
-    appLanguage: appLanguages.has(source.appLanguage)
-      ? source.appLanguage
-      : defaults.appLanguage,
-    soundEnabled:
-      typeof source.soundEnabled === "boolean"
-        ? source.soundEnabled
-        : defaults.soundEnabled,
-  };
-}
-function decryptApiKey(value) {
-  if (!value || !safeStorage.isEncryptionAvailable()) return "";
-  try {
-    return safeStorage.decryptString(Buffer.from(value, "base64"));
-  } catch {
-    return "";
-  }
-}
 function settings() {
-  try {
-    const stored = JSON.parse(fs.readFileSync(configPath(), "utf8"));
-    const apiKey = stored.apiKeyEncrypted
-      ? decryptApiKey(stored.apiKeyEncrypted)
-      : limitedString(stored.apiKey, "", 10_000);
-    const result = sanitizeSettings({ ...stored, apiKey });
-    if (stored.apiKey && safeStorage.isEncryptionAvailable()) save(result);
-    return result;
-  } catch {
-    return { ...defaults };
-  }
+  return settingsStore.load();
 }
-function save(s) {
-  const sanitized = sanitizeSettings(s);
-  const stored = { ...sanitized };
-  if (stored.apiKey && safeStorage.isEncryptionAvailable()) {
-    stored.apiKeyEncrypted = safeStorage
-      .encryptString(stored.apiKey)
-      .toString("base64");
-    delete stored.apiKey;
-  }
-  fs.mkdirSync(path.dirname(configPath()), { recursive: true });
-  const temporaryPath = `${configPath()}.tmp`;
-  fs.writeFileSync(temporaryPath, JSON.stringify(stored, null, 2), "utf8");
-  fs.renameSync(temporaryPath, configPath());
-  return sanitized;
+function save(value) {
+  return settingsStore.save(value);
 }
 function saveTranscription(text, s) {
   if (typeof text !== "string" || text.length > MAX_TEXT_LENGTH) {
@@ -393,71 +301,7 @@ function trayMenu() {
   );
 }
 async function aiCorrect(text, s) {
-  const lang = getLang(s);
-  const correctionInstruction = lang === "pl"
-    ? "Popraw wyłącznie literówki, błędy ortograficzne, interpunkcyjne i oczywiste błędy gramatyczne. Nie zmieniaj treści, znaczenia, tonu ani stylu. Zwróć tylko poprawiony tekst, bez komentarza."
-    : lang === "de"
-      ? "Korrigiere ausschließlich Tippfehler, Rechtschreibung, Zeichensetzung und offensichtliche Grammatikfehler. Ändere weder Inhalt, Bedeutung, Ton noch Stil. Gib nur den korrigierten Text ohne Kommentar zurück."
-      : "Correct only typos, spelling, punctuation, and obvious grammatical errors. Do not change the content, meaning, tone, or style. Return only the corrected text, without any comments.";
-  const prompt = correctionInstruction + "\n\n" + text;
-
-  if (s.provider === "local") {
-    throw new Error(
-      lang === "pl"
-        ? "Lokalny silnik nie obsługuje jeszcze korekty tekstu"
-        : lang === "de"
-          ? "Das lokale Modul unterstützt die Textkorrektur noch nicht"
-          : "The local engine does not support text correction yet",
-    );
-  }
-  if (s.provider === "openai") {
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${s.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0,
-      }),
-    });
-    const payload = await readJsonResponse(r);
-    if (!r.ok) {
-      throw new Error(
-        apiErrorMessage(payload, lang === "pl" ? "Błąd OpenAI" : "OpenAI error"),
-      );
-    }
-    const corrected = payload?.choices?.[0]?.message?.content;
-    if (typeof corrected !== "string" || !corrected.trim()) {
-      throw new Error(lang === "pl" ? "OpenAI zwróciło pustą odpowiedź" : "OpenAI returned an empty response");
-    }
-    return corrected;
-  }
-  const model = s.model.startsWith("gemini") ? s.model : "gemini-2.0-flash";
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${s.apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0 },
-      }),
-    },
-  );
-  const payload = await readJsonResponse(r);
-  if (!r.ok) {
-    throw new Error(
-      apiErrorMessage(payload, lang === "pl" ? "Błąd Gemini" : "Gemini error"),
-    );
-  }
-  const corrected = geminiText(payload);
-  if (!corrected) {
-    throw new Error(lang === "pl" ? "Gemini zwróciło pustą odpowiedź" : "Gemini returned an empty response");
-  }
-  return corrected;
+  return correctTextWithApi({ text, settings: s, lang: getLang(s) });
 }
 function keys(action) {
   return new Promise((resolve, reject) => {
@@ -492,29 +336,6 @@ function keys(action) {
     }
   });
 }
-async function readJsonResponse(response) {
-  const raw = await response.text();
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function apiErrorMessage(payload, fallback) {
-  return payload?.error?.message || payload?.message || fallback;
-}
-
-function geminiText(payload) {
-  const parts = payload?.candidates?.[0]?.content?.parts;
-  if (!Array.isArray(parts)) return "";
-  return parts
-    .map((part) => (typeof part?.text === "string" ? part.text : ""))
-    .join("")
-    .trim();
-}
-
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function correctText() {
   const s = settings();
@@ -581,102 +402,14 @@ async function transcribe(buf, mime) {
   const t = mainTranslations[lang] || mainTranslations.en;
   if (!s.apiKey) throw new Error(t.statusNoApiKeySettings);
   status("info", t.statusTranscribing);
-  let text;
-  if (s.provider === "openai") {
-    const form = new FormData();
-    form.append(
-      "file",
-      new Blob([buf], { type: audioMime }),
-      "nagranie.webm",
-    );
-    form.append(
-      "model",
-      s.model.startsWith("gpt-") ? s.model : "gpt-4o-mini-transcribe",
-    );
-    if (s.language && s.language !== "auto") {
-      form.append("language", s.language);
-    }
-    const r = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${s.apiKey}` },
-      body: form,
-    });
-    const payload = await readJsonResponse(r);
-    if (!r.ok) {
-      throw new Error(
-        apiErrorMessage(
-          payload,
-          lang === "pl" ? "Błąd transkrypcji OpenAI" : "OpenAI transcription error",
-        ),
-      );
-    }
-    if (typeof payload?.text !== "string" || !payload.text.trim()) {
-      throw new Error(
-        lang === "pl"
-          ? "OpenAI nie zwróciło transkrypcji"
-          : "OpenAI did not return a transcription",
-      );
-    }
-    text = payload.text;
-  } else {
-    const model = s.model.startsWith("gemini") ? s.model : "gemini-2.0-flash";
-    
-    // Resolve recording language
-    const recordingLang = s.language && s.language !== "auto" ? s.language : getSystemLanguage();
-    
-    let geminiInstruction;
-    if (recordingLang === "pl") {
-      geminiInstruction = "Dokładnie przepisz tę polską notatkę głosową. Zwróć tylko transkrypcję.";
-    } else if (recordingLang === "de") {
-      geminiInstruction = "Transkribiere diese deutsche Sprachnotiz genau. Gib nur die Transkription zurück.";
-    } else if (recordingLang === "ru") {
-      geminiInstruction = "Точно расшифруй эту голосовую заметку на русском языке. Верни только расшифровку.";
-    } else {
-      geminiInstruction = "Accurately transcribe this English voice note. Return only the transcription.";
-    }
 
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${s.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: geminiInstruction,
-                },
-                {
-                  inline_data: {
-                    mime_type: audioMime,
-                    data: Buffer.from(buf).toString("base64"),
-                  },
-                },
-              ],
-            },
-          ],
-        }),
-      },
-    );
-    const payload = await readJsonResponse(r);
-    if (!r.ok) {
-      throw new Error(
-        apiErrorMessage(
-          payload,
-          lang === "pl" ? "Błąd transkrypcji Gemini" : "Gemini transcription error",
-        ),
-      );
-    }
-    text = geminiText(payload);
-    if (!text) {
-      throw new Error(
-        lang === "pl"
-          ? "Gemini nie zwróciło transkrypcji"
-          : "Gemini did not return a transcription",
-      );
-    }
-  }
+  const text = await transcribeAudioWithApi({
+    buf,
+    mime: audioMime,
+    settings: s,
+    lang,
+    systemLanguage: getSystemLanguage(),
+  });
   return saveTranscription(text, s);
 }
 
