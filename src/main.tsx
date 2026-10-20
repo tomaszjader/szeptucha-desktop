@@ -133,8 +133,11 @@ function App() {
       const saved = await window.szeptucha.saveSettings(next);
       setS(saved);
       showToast(t.settingsSaved, "success", 2500);
-    } catch {
-      showToast(t.settingsSaveFailed, "error");
+    } catch (error) {
+      const message = error instanceof Error && error.message === "SECURE_STORAGE_UNAVAILABLE"
+        ? t.secureStorageUnavailable
+        : t.settingsSaveFailed;
+      showToast(message, "error");
     } finally {
       settingsSaveInFlight.current = false;
       setSettingsSaving(false);
