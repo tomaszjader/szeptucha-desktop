@@ -32,6 +32,7 @@ const {
   createSettingsStore,
 } = require("./settings.cjs");
 const { correctTextWithApi, transcribeAudioWithApi } = require("./ai-api.cjs");
+const { createUpdater } = require("./updater.cjs");
 
 function getSystemLanguage() {
   const locale = app.getLocale();
@@ -569,6 +570,8 @@ async function deleteNote(fileName) {
 app.whenReady().then(async () => {
   createWindow();
   createRecordingIndicator();
+  const updater = createUpdater({ app, dialog });
+  setTimeout(() => void updater.checkForUpdates(), 15_000).unref();
   await ocr.init();
   trayMenu();
   shortcuts();
