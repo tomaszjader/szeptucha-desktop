@@ -10,7 +10,7 @@ const MAX_INSTALLER_BYTES = 500 * 1024 * 1024;
 
 function compareVersions(left, right) {
   const parse = value => {
-    const match = /^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:[-+].*)?$/.exec(value || "");
+    const match = /^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(value || "");
     return match ? match.slice(1, 4).map(Number) : null;
   };
   const a = parse(left);
@@ -26,7 +26,7 @@ function get(url, headers = {}, redirects = 0) {
   return new Promise((resolve, reject) => {
     if (redirects > 5) return reject(new Error("Too many download redirects"));
     const parsed = new URL(url);
-    if (parsed.protocol !== "https:") return reject(new Error("HTTPS is required"));
+    if (parsed.protocol !== "https:" || !["api.github.com", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"].includes(parsed.hostname)) return reject(new Error("Untrusted update host"));
     const request = https.get(parsed, { headers, timeout: 30_000 }, response => {
       if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
         const location = response.headers.location;
@@ -101,7 +101,7 @@ function createUpdater({ app, dialog, platform = process.platform, logger = cons
       const version = String(release.tag_name || "").replace(/^v/, "");
       if (compareVersions(version, app.getVersion()) <= 0) return;
       const asset = (release.assets || []).find(item =>
-        /^Szeptucha-Setup-\\d+\\.\\d+\\.\\d+\\.exe$/i.test(item.name),
+        /^Szeptucha-Setup-\d+\.\d+\.\d+\.exe$/i.test(item.name),
       );
       if (!asset) return;
       const prompt = await dialog.showMessageBox({
