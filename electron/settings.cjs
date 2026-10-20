@@ -124,8 +124,8 @@ function createSettingsStore({ getConfigPath, defaults, safeStorage, fs }) {
       stored.apiKeyEncrypted = safeStorage
         .encryptString(stored.apiKey)
         .toString("base64");
-      delete stored.apiKey;
     }
+    delete stored.apiKey;
     fs.mkdirSync(require("node:path").dirname(getConfigPath()), { recursive: true });
     const temporaryPath = getConfigPath() + ".tmp";
     fs.writeFileSync(temporaryPath, JSON.stringify(stored, null, 2), "utf8");
