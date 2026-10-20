@@ -128,6 +128,7 @@ function createUpdater({ app, dialog, platform = process.platform, logger = cons
         noLink: true,
       });
       if (ready.response !== 0) {
+        await fs.promises.unlink(installerPath).catch(() => {});
         installerPath = null;
         return;
       }
