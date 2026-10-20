@@ -103,3 +103,44 @@ test("returns defaults when settings JSON is invalid", t => {
 
   assert.deepEqual(store.load(), defaults);
 });
+
+test("refuses to persist an API key when secure storage is unavailable", t => {
+  const directory = makeDirectory(t);
+  const filePath = path.join(directory, "settings.json");
+  const store = createSettingsStore({
+    getConfigPath: () => filePath,
+    defaults: createDefaultSettings(directory),
+    safeStorage: { isEncryptionAvailable: () => false },
+    fs,
+  });
+
+  assert.throws(
+    () => store.save({ provider: "openai", apiKey: "secret" }),
+    { message: "SECURE_STORAGE_UNAVAILABLE" },
+  );
+  assert.equal(fs.existsSync(filePath), false);
+});
+
+test("removes a legacy plaintext API key when secure storage is unavailable", t => {
+  const directory = makeDirectory(t);
+  const filePath = path.join(directory, "settings.json");
+  fs.writeFileSync(filePath, JSON.stringify({
+    provider: "gemini",
+    apiKey: "legacy-secret",
+    appLanguage: "pl",
+  }));
+  const store = createSettingsStore({
+    getConfigPath: () => filePath,
+    defaults: createDefaultSettings(directory),
+    safeStorage: { isEncryptionAvailable: () => false },
+    fs,
+  });
+
+  const loaded = store.load();
+  const stored = JSON.parse(fs.readFileSync(filePath, "utf8"));
+
+  assert.equal(loaded.apiKey, "");
+  assert.equal(loaded.provider, "gemini");
+  assert.equal(stored.apiKey, undefined);
+  assert.equal(stored.apiKeyEncrypted, undefined);
+});
