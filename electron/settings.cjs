@@ -96,11 +96,18 @@ function createSettingsStore({ getConfigPath, defaults, safeStorage, fs }) {
   function load() {
     try {
       const stored = JSON.parse(fs.readFileSync(getConfigPath(), "utf8"));
+      const encryptionAvailable = safeStorage.isEncryptionAvailable();
+      const hasLegacyPlaintextKey =
+        typeof stored.apiKey === "string" && stored.apiKey.length > 0;
       const apiKey = stored.apiKeyEncrypted
         ? decryptApiKey(stored.apiKeyEncrypted)
-        : limitedString(stored.apiKey, "", 10_000);
+        : encryptionAvailable
+          ? limitedString(stored.apiKey, "", 10_000)
+          : "";
       const result = sanitizeSettings({ ...stored, apiKey }, defaults);
-      if (stored.apiKey && safeStorage.isEncryptionAvailable()) save(result);
+      // Migrate legacy plaintext keys when possible. If encryption is unavailable,
+      // remove the exposed key from disk and continue without it.
+      if (hasLegacyPlaintextKey) save(result);
       return result;
     } catch {
       return { ...defaults };
@@ -110,12 +117,15 @@ function createSettingsStore({ getConfigPath, defaults, safeStorage, fs }) {
   function save(value) {
     const sanitized = sanitizeSettings(value, defaults);
     const stored = { ...sanitized };
-    if (stored.apiKey && safeStorage.isEncryptionAvailable()) {
+    if (stored.apiKey && !safeStorage.isEncryptionAvailable()) {
+      throw new Error("SECURE_STORAGE_UNAVAILABLE");
+    }
+    if (stored.apiKey) {
       stored.apiKeyEncrypted = safeStorage
         .encryptString(stored.apiKey)
         .toString("base64");
-      delete stored.apiKey;
     }
+    delete stored.apiKey;
     fs.mkdirSync(require("node:path").dirname(getConfigPath()), { recursive: true });
     const temporaryPath = getConfigPath() + ".tmp";
     fs.writeFileSync(temporaryPath, JSON.stringify(stored, null, 2), "utf8");
