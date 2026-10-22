@@ -90,7 +90,25 @@ async function downloadInstaller(asset, destination) {
   });
 }
 
-function createUpdater({ app, dialog, platform = process.platform, logger = console }) {
+const defaultMessages = {
+  updateTitle: "Szeptucha — update",
+  updateAvailable: "A new version of Szeptucha is available ({version}).",
+  updateDownloadQuestion: "Would you like to download and install the update?",
+  updateDownload: "Download",
+  updateLater: "Later",
+  updateDownloaded: "The update has been downloaded.",
+  updateInstallDetail: "Save your work. The app will close and start the installer.",
+  updateInstallNow: "Install now",
+};
+
+function createUpdater({
+  app,
+  dialog,
+  translations = {},
+  platform = process.platform,
+  logger = console,
+}) {
+  const messages = { ...defaultMessages, ...translations };
   let checking = false;
   async function checkForUpdates() {
     if (checking || !app.isPackaged || platform !== "win32") return;
@@ -106,10 +124,10 @@ function createUpdater({ app, dialog, platform = process.platform, logger = cons
       if (!asset) return;
       const prompt = await dialog.showMessageBox({
         type: "info",
-        title: "Szeptucha — aktualizacja",
-        message: `Dostępna jest nowa wersja Szeptuchy (${version}).`,
-        detail: "Czy pobrać i zainstalować aktualizację?",
-        buttons: ["Pobierz", "Później"],
+        title: messages.updateTitle,
+        message: messages.updateAvailable.replace("{version}", version),
+        detail: messages.updateDownloadQuestion,
+        buttons: [messages.updateDownload, messages.updateLater],
         defaultId: 0,
         cancelId: 1,
         noLink: true,
@@ -119,10 +137,10 @@ function createUpdater({ app, dialog, platform = process.platform, logger = cons
       await downloadInstaller(asset, installerPath);
       const ready = await dialog.showMessageBox({
         type: "info",
-        title: "Szeptucha — aktualizacja",
-        message: "Aktualizacja została pobrana.",
-        detail: "Zapisz pracę. Aplikacja zamknie się i uruchomi instalator.",
-        buttons: ["Zainstaluj teraz", "Później"],
+        title: messages.updateTitle,
+        message: messages.updateDownloaded,
+        detail: messages.updateInstallDetail,
+        buttons: [messages.updateInstallNow, messages.updateLater],
         defaultId: 0,
         cancelId: 1,
         noLink: true,
