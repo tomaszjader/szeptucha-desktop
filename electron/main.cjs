@@ -570,7 +570,11 @@ async function deleteNote(fileName) {
 app.whenReady().then(async () => {
   createWindow();
   createRecordingIndicator();
-  const updater = createUpdater({ app, dialog });
+  const updater = createUpdater({
+    app,
+    dialog,
+    translations: mainTranslations[getLang(settings())] || mainTranslations.en,
+  });
   setTimeout(() => void updater.checkForUpdates(), 15_000).unref();
   await ocr.init();
   trayMenu();

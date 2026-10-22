@@ -17,3 +17,27 @@ test("does not treat invalid version strings as updates", () => {
   assert.equal(compareVersions("nightly", "1.0.0"), 0);
   assert.equal(compareVersions("1.0", "0.9.0"), 0);
 });
+
+test("provides every update dialog message in all supported languages", () => {
+  const { mainTranslations } = require("../electron/translations.cjs");
+  const keys = [
+    "updateTitle",
+    "updateAvailable",
+    "updateDownloadQuestion",
+    "updateDownload",
+    "updateLater",
+    "updateDownloaded",
+    "updateInstallDetail",
+    "updateInstallNow",
+  ];
+
+  for (const [language, messages] of Object.entries(mainTranslations)) {
+    for (const key of keys) {
+      assert.equal(typeof messages[key], "string", `${language} is missing ${key}`);
+      assert.ok(messages[key].length > 0, `${language} has an empty ${key}`);
+    }
+  }
+  assert.ok(Object.values(mainTranslations).every(
+    messages => messages.updateAvailable.includes("{version}"),
+  ));
+});
