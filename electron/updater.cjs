@@ -24,14 +24,12 @@ function compareVersions(left, right) {
 }
 
 function parseSha256Manifest(contents, fileName) {
-  for (const line of String(contents).split(/\r?
-/)) {
+  for (const line of String(contents).split(/\r\n|\n/)) {
     const match = /^([a-f0-9]{64})[ \t]+\*?(.+)$/.exec(line.trim());
     if (match && match[2].trim() === fileName) return match[1].toLowerCase();
   }
   return null;
 }
-
 function hashesMatch(expected, actual) {
   if (!/^[a-f0-9]{64}$/i.test(expected || "") ||
       !/^[a-f0-9]{64}$/i.test(actual || "")) return false;
