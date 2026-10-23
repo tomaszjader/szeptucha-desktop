@@ -45,7 +45,7 @@ test("provides every update dialog message in all supported languages", () => {
 
 test("reads the checksum only for the exact installer filename", () => {
   const checksum = "a".repeat(64);
-  const manifest = `${checksum}  Szeptucha-Setup-0.2.0.exe\\r\\n`;
+  const manifest = `${checksum}  Szeptucha-Setup-0.2.0.exe` + String.fromCharCode(13, 10);
 
   assert.equal(
     parseSha256Manifest(manifest, "Szeptucha-Setup-0.2.0.exe"),
