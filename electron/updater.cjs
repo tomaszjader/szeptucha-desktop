@@ -101,9 +101,8 @@ async function latestRelease() {
   return JSON.parse(body);
 }
 
-async function downloadInstaller(asset, destination) {
-  if (!asset || typeof asset.browser_download_url !== "string" ||
-      !asset.browser_download_url.startsWith("https://github.com/")) {
+async function downloadInstaller(asset, destination, expectedSha256) {
+  if (!isGitHubAsset(asset)) {
     throw new Error("Invalid installer download URL");
   }
   if (!/^[a-f0-9]{64}$/i.test(expectedSha256 || "")) {
