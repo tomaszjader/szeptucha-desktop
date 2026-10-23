@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { compareVersions } = require("../electron/updater.cjs");
+const { compareVersions, parseSha256Manifest, hashesMatch } = require("../electron/updater.cjs");
 
 test("compares stable semantic versions", () => {
   assert.equal(compareVersions("0.2.0", "0.1.9"), 1);
@@ -29,6 +29,7 @@ test("provides every update dialog message in all supported languages", () => {
     "updateDownloaded",
     "updateInstallDetail",
     "updateInstallNow",
+    "updateFailed",
   ];
 
   for (const [language, messages] of Object.entries(mainTranslations)) {
@@ -40,4 +41,27 @@ test("provides every update dialog message in all supported languages", () => {
   assert.ok(Object.values(mainTranslations).every(
     messages => messages.updateAvailable.includes("{version}"),
   ));
+});
+
+test("reads the checksum only for the exact installer filename", () => {
+  const checksum = "a".repeat(64);
+  const manifest = `${checksum}  Szeptucha-Setup-0.2.0.exe` + String.fromCharCode(13, 10);
+
+  assert.equal(
+    parseSha256Manifest(manifest, "Szeptucha-Setup-0.2.0.exe"),
+    checksum,
+  );
+  assert.equal(
+    parseSha256Manifest(manifest, "Szeptucha-Setup-0.3.0.exe"),
+    null,
+  );
+  assert.equal(parseSha256Manifest("invalid checksum", "setup.exe"), null);
+});
+
+test("compares SHA-256 digests and rejects malformed values", () => {
+  const checksum = "a".repeat(64);
+
+  assert.equal(hashesMatch(checksum, checksum), true);
+  assert.equal(hashesMatch(checksum, "b".repeat(64)), false);
+  assert.equal(hashesMatch("not-a-hash", checksum), false);
 });
