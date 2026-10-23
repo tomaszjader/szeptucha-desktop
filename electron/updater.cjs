@@ -106,7 +106,10 @@ async function downloadInstaller(asset, destination) {
       !asset.browser_download_url.startsWith("https://github.com/")) {
     throw new Error("Invalid installer download URL");
   }
-  if (!/^[a-f0-9]{64}$/i.test(expectedSha256 || "")) {\n    throw new Error("Invalid expected installer checksum");\n  }\n  if (asset.size > MAX_INSTALLER_BYTES) throw new Error("Installer is too large");
+  if (!/^[a-f0-9]{64}$/i.test(expectedSha256 || "")) {
+    throw new Error("Invalid expected installer checksum");
+  }
+  if (asset.size > MAX_INSTALLER_BYTES) throw new Error("Installer is too large");
   const response = await get(asset.browser_download_url, { "User-Agent": "Szeptucha-Desktop" });
   if (response.statusCode !== 200) {
     response.resume();
@@ -150,7 +153,8 @@ const defaultMessages = {
   updateLater: "Later",
   updateDownloaded: "The update has been downloaded.",
   updateInstallDetail: "Save your work. The app will close and start the installer.",
-  updateInstallNow: "Install now",\n  updateFailed: "The update could not be downloaded or verified.",
+  updateInstallNow: "Install now",
+  updateFailed: "The update could not be downloaded or verified.",
 };
 
 function createUpdater({
