@@ -24,7 +24,8 @@ function compareVersions(left, right) {
 }
 
 function parseSha256Manifest(contents, fileName) {
-  for (const line of String(contents).split(/\r?\n/)) {
+  for (const line of String(contents).split(/\r?
+/)) {
     const match = /^([a-f0-9]{64})[ \t]+\*?(.+)$/.exec(line.trim());
     if (match && match[2].trim() === fileName) return match[1].toLowerCase();
   }
