@@ -54,6 +54,38 @@ jobs:
       - name: Build Windows installer
         run: npm run build
 
+      - name: Install and launch application
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release/Szeptucha-Setup-*.exe | Select-Object -First 1
+          if (-not $installer) {
+            throw "Windows installer was not created."
+          }
+
+          $installDir = Join-Path $env:RUNNER_TEMP "SzeptuchaSmoke"
+          $install = Start-Process -FilePath $installer.FullName -ArgumentList @("/S", "/D=$installDir") -Wait -PassThru
+          if ($install.ExitCode -ne 0) {
+            throw "Installer exited with code $($install.ExitCode)."
+          }
+
+          $appPath = Join-Path $installDir "Szeptucha.exe"
+          if (-not (Test-Path $appPath)) {
+            throw "Installed application was not found at $appPath."
+          }
+
+          $app = Start-Process -FilePath $appPath -PassThru
+          try {
+            Start-Sleep -Seconds 15
+            $app.Refresh()
+            if ($app.HasExited) {
+              throw "Application exited during the smoke test with code $($app.ExitCode)."
+            }
+          } finally {
+            if (-not $app.HasExited) {
+              Stop-Process -Id $app.Id -Force
+            }
+          }
+
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
