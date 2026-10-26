@@ -81,27 +81,25 @@ async function main() {
     }
     if (!heading) throw new Error("Szeptucha did not render its main heading.");
 
-    const selector = "button.themeToggle";
-    let button = false;
+    const historyTab = 'document.querySelector("aside nav button:nth-child(2)")';
+    let rendered = false;
     while (Date.now() < deadline) {
-      button = await evaluate(socket, `Boolean(document.querySelector(${JSON.stringify(selector)}))`);
-      if (button) break;
+      rendered = await evaluate(socket, `Boolean(${historyTab})`);
+      if (rendered) break;
       await new Promise(resolve => setTimeout(resolve, 250));
     }
-    if (!button) throw new Error("Theme toggle was not rendered in the main window.");
+    if (!rendered) throw new Error("History tab was not rendered in the main window.");
 
-    const before = await evaluate(socket, `(() => { const button = document.querySelector(${JSON.stringify(selector)}); return { theme: document.documentElement.dataset.theme, label: button.getAttribute("aria-label") }; })()`);
-    await evaluate(socket, `document.querySelector(${JSON.stringify(selector)}).click()`);
+    const before = await evaluate(socket, `Boolean(${historyTab}.classList.contains("active"))`);
+    await evaluate(socket, `${historyTab}.click()`);
     let after = before;
     const interactionDeadline = Date.now() + 5_000;
-    while (Date.now() < interactionDeadline && before.label === after.label) {
+    while (Date.now() < interactionDeadline && !after) {
       await new Promise(resolve => setTimeout(resolve, 100));
-      after = await evaluate(socket, `(() => { const button = document.querySelector(${JSON.stringify(selector)}); return { theme: document.documentElement.dataset.theme, label: button?.getAttribute("aria-label") }; })()`);
+      after = await evaluate(socket, `Boolean(${historyTab}.classList.contains("active"))`);
     }
-    if (!before.label || before.label === after.label) {
-      throw new Error(`Theme button click did not update its accessible label (before: ${JSON.stringify(before)}, after: ${JSON.stringify(after)}).`);
-    }
-    console.log(`Szeptucha UI smoke test passed (heading: "${heading}"; theme: ${before.theme} → ${after.theme}).`);
+    if (before || !after) throw new Error("History tab click did not activate the tab.");
+    console.log(`Szeptucha UI smoke test passed (heading: "${heading}"; History tab activated).`);
   } finally {
     socket.close();
   }
