@@ -1,32 +1,44 @@
 const port = Number(process.env.SZEPTOCHA_DEBUG_PORT || 9223);
 const deadline = Date.now() + 60_000;
 
-async function getPageTarget() {
+async function getMainRenderer() {
+  let lastTargets = [];
   while (Date.now() < deadline) {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/json/list`);
       if (response.ok) {
-        const targets = await response.json();
-        const page = targets.find(target =>
-          target.type === "page" &&
-          target.title === "Szeptucha" &&
-          /\/index\.html(?:[?#].*)?$/.test(target.url) &&
-          typeof target.webSocketDebuggerUrl === "string",
-        );
-        if (page) return page;
+        lastTargets = await response.json();
+        for (const target of lastTargets) {
+          if (target.type !== "page" || typeof target.webSocketDebuggerUrl !== "string") continue;
+          let socket;
+          try {
+            socket = await connect(target.webSocketDebuggerUrl);
+            const appState = await evaluate(
+              socket,
+              '({ heading: document.querySelector("h1")?.textContent?.trim() || "", hasThemeToggle: Boolean(document.querySelector("button.themeToggle")) })',
+            );
+            if (appState.heading && appState.hasThemeToggle) {
+              return { socket, heading: appState.heading };
+            }
+          } catch {
+            // A target may disappear while Electron creates its windows.
+          }
+          socket?.close();
+        }
       }
     } catch {
       // Electron may still be starting.
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   }
-  throw new Error("Timed out waiting for the Szeptucha main window renderer.");
+  const summary = lastTargets.map(({ type, title, url }) => ({ type, title, url }));
+  throw new Error(`Timed out waiting for the main Szeptucha renderer. Targets: ${JSON.stringify(summary)}`);
 }
 
 function connect(url) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(url);
-    const timeout = setTimeout(() => reject(new Error("Timed out connecting to renderer.")), 10_000);
+    const timeout = setTimeout(() => reject(new Error("Timed out connecting to renderer.")), 5_000);
     socket.addEventListener("open", () => {
       clearTimeout(timeout);
       resolve(socket);
@@ -44,7 +56,7 @@ function evaluate(socket, expression) {
     const timeout = setTimeout(() => {
       socket.removeEventListener("message", onMessage);
       reject(new Error("Renderer evaluation timed out."));
-    }, 10_000);
+    }, 5_000);
     function onMessage(event) {
       let message;
       try {
@@ -71,26 +83,9 @@ function evaluate(socket, expression) {
 }
 
 async function main() {
-  const target = await getPageTarget();
-  const socket = await connect(target.webSocketDebuggerUrl);
+  const { socket, heading } = await getMainRenderer();
   try {
-    let heading = "";
-    while (Date.now() < deadline) {
-      heading = await evaluate(socket, 'document.querySelector("h1")?.textContent?.trim() || ""');
-      if (heading) break;
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    if (!heading) throw new Error("Szeptucha did not render its main heading.");
-
     const selector = "button.themeToggle";
-    let button = false;
-    while (Date.now() < deadline) {
-      button = await evaluate(socket, `Boolean(document.querySelector(${JSON.stringify(selector)}))`);
-      if (button) break;
-      await new Promise(resolve => setTimeout(resolve, 250));
-    }
-    if (!button) throw new Error("Theme toggle was not rendered in the Szeptucha main window.");
-
     const before = await evaluate(socket, `(() => { const button = document.querySelector(${JSON.stringify(selector)}); return { theme: document.documentElement.dataset.theme, label: button.getAttribute("aria-label") }; })()`);
     await evaluate(socket, `document.querySelector(${JSON.stringify(selector)}).click()`);
     let after = before;
