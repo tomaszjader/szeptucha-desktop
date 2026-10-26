@@ -73,9 +73,12 @@ jobs:
             throw "Installed application was not found at $appPath."
           }
 
-          $app = Start-Process -FilePath $appPath -PassThru
+          $app = Start-Process -FilePath $appPath -ArgumentList "--remote-debugging-port=9223" -PassThru
           try {
-            Start-Sleep -Seconds 15
+            node scripts/windows-ui-smoke.cjs
+            if ($LASTEXITCODE -ne 0) {
+              throw "Renderer UI smoke test failed."
+            }
             $app.Refresh()
             if ($app.HasExited) {
               throw "Application exited during the smoke test with code $($app.ExitCode)."
