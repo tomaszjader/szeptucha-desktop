@@ -92,16 +92,18 @@ async function main() {
       throw new Error(`No theme button rendered. Buttons found: ${JSON.stringify(renderedButtons)}`);
     }
 
-    const before = await evaluate(socket, 'document.documentElement.dataset.theme');
+    const before = await evaluate(socket, `(() => { const button = document.querySelector(${JSON.stringify(selector)}); return { theme: document.documentElement.dataset.theme, label: button.getAttribute("aria-label") }; })()`);
     await evaluate(socket, `document.querySelector(${JSON.stringify(selector)}).click()`);
     let after = before;
     const interactionDeadline = Date.now() + 5_000;
-    while (Date.now() < interactionDeadline && before === after) {
+    while (Date.now() < interactionDeadline && before.label === after.label) {
       await new Promise(resolve => setTimeout(resolve, 100));
-      after = await evaluate(socket, 'document.documentElement.dataset.theme');
+      after = await evaluate(socket, `(() => { const button = document.querySelector(${JSON.stringify(selector)}); return { theme: document.documentElement.dataset.theme, label: button?.getAttribute("aria-label") }; })()`);
     }
-    if (!before || before === after) throw new Error("Theme toggle interaction did not change the theme.");
-    console.log(`Szeptucha UI smoke test passed (heading: "${heading}"; theme: ${before} → ${after}).`);
+    if (!before.label || before.label === after.label) {
+      throw new Error(`Theme button click did not update its accessible label (before: ${JSON.stringify(before)}, after: ${JSON.stringify(after)}).`);
+    }
+    console.log(`Szeptucha UI smoke test passed (heading: "${heading}"; button label: "${before.label}" → "${after.label}").`);
   } finally {
     socket.close();
   }
