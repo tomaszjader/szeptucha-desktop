@@ -9,6 +9,7 @@ async function getPageTarget() {
         const targets = await response.json();
         const page = targets.find(target =>
           target.type === "page" &&
+          /\/index\.html(?:[?#].*)?$/.test(target.url) &&
           typeof target.webSocketDebuggerUrl === "string",
         );
         if (page) return page;
@@ -18,7 +19,7 @@ async function getPageTarget() {
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   }
-  throw new Error("Timed out waiting for the Szeptucha renderer.");
+  throw new Error("Timed out waiting for the Szeptucha main window renderer.");
 }
 
 function connect(url) {
@@ -80,17 +81,14 @@ async function main() {
     }
     if (!heading) throw new Error("Szeptucha did not render its main heading.");
 
-    const selector = "button.themeToggle, header button";
+    const selector = "button.themeToggle";
     let button = false;
     while (Date.now() < deadline) {
       button = await evaluate(socket, `Boolean(document.querySelector(${JSON.stringify(selector)}))`);
       if (button) break;
       await new Promise(resolve => setTimeout(resolve, 250));
     }
-    if (!button) {
-      const renderedButtons = await evaluate(socket, '[...document.querySelectorAll("button")].map(button => ({ text: button.textContent.trim(), label: button.getAttribute("aria-label"), title: button.title }))');
-      throw new Error(`No theme button rendered. Buttons found: ${JSON.stringify(renderedButtons)}`);
-    }
+    if (!button) throw new Error("Theme toggle was not rendered in the main window.");
 
     const before = await evaluate(socket, `(() => { const button = document.querySelector(${JSON.stringify(selector)}); return { theme: document.documentElement.dataset.theme, label: button.getAttribute("aria-label") }; })()`);
     await evaluate(socket, `document.querySelector(${JSON.stringify(selector)}).click()`);
@@ -103,7 +101,7 @@ async function main() {
     if (!before.label || before.label === after.label) {
       throw new Error(`Theme button click did not update its accessible label (before: ${JSON.stringify(before)}, after: ${JSON.stringify(after)}).`);
     }
-    console.log(`Szeptucha UI smoke test passed (heading: "${heading}"; button label: "${before.label}" → "${after.label}").`);
+    console.log(`Szeptucha UI smoke test passed (heading: "${heading}"; theme: ${before.theme} → ${after.theme}).`);
   } finally {
     socket.close();
   }
