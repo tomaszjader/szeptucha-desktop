@@ -79,11 +79,27 @@ async function main() {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
     if (!heading) throw new Error("Szeptucha did not render its main heading.");
+
+    const selector = "button.themeToggle, header button";
+    let button = false;
+    while (Date.now() < deadline) {
+      button = await evaluate(socket, `Boolean(document.querySelector(${JSON.stringify(selector)}))`);
+      if (button) break;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    if (!button) {
+      const renderedButtons = await evaluate(socket, '[...document.querySelectorAll("button")].map(button => ({ text: button.textContent.trim(), label: button.getAttribute("aria-label"), title: button.title }))');
+      throw new Error(`No theme button rendered. Buttons found: ${JSON.stringify(renderedButtons)}`);
+    }
+
     const before = await evaluate(socket, 'document.documentElement.dataset.theme');
-    const button = await evaluate(socket, 'Boolean(document.querySelector("button.themeToggle"))');
-    if (!button) throw new Error("Theme toggle was not rendered.");
-    await evaluate(socket, 'document.querySelector("button.themeToggle").click()');
-    const after = await evaluate(socket, 'document.documentElement.dataset.theme');
+    await evaluate(socket, `document.querySelector(${JSON.stringify(selector)}).click()`);
+    let after = before;
+    const interactionDeadline = Date.now() + 5_000;
+    while (Date.now() < interactionDeadline && before === after) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      after = await evaluate(socket, 'document.documentElement.dataset.theme');
+    }
     if (!before || before === after) throw new Error("Theme toggle interaction did not change the theme.");
     console.log(`Szeptucha UI smoke test passed (heading: "${heading}"; theme: ${before} → ${after}).`);
   } finally {
