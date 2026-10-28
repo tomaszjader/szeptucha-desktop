@@ -31,26 +31,38 @@ async function transcribeLocally(blob, settings, report) {
     // Transformers reports aggregate progress as model files are downloaded.
     // Keep the indicator indeterminate when the total size is unavailable.
     let lastProgress = null;
-    const nextTranscriber = await pipeline("automatic-speech-recognition", hfModelId, {
-      progress_callback: event => {
-        if (event.status !== "progress_total") return;
-        const progress = event.total > 0 && Number.isFinite(event.progress)
-          ? Math.max(0, Math.min(100, Math.floor(event.progress)))
-          : null;
-        if (progress === lastProgress) return;
-        lastProgress = progress;
-        report({ phase: "loading-model", downloadProgress: progress });
-      },
-    });
+    let nextTranscriber;
+    try {
+      nextTranscriber = await pipeline("automatic-speech-recognition", hfModelId, {
+        progress_callback: event => {
+          if (event.status !== "progress_total") return;
+          const progress = event.total > 0 && Number.isFinite(event.progress)
+            ? Math.max(0, Math.min(100, Math.floor(event.progress)))
+            : null;
+          if (progress === lastProgress) return;
+          lastProgress = progress;
+          report({ phase: "loading-model", downloadProgress: progress });
+        },
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`LOCAL_MODEL_ERROR: ${detail}`);
+    }
     localTranscriber = nextTranscriber;
     currentWhisperModel = hfModelId;
   }
 
   report({ phase: "transcribing", downloadProgress: null });
-  const result = await localTranscriber(rendered.getChannelData(0), {
-    language: settings.language && settings.language !== "auto" ? settings.language : null,
-    task: "transcribe",
-  });
+  let result;
+  try {
+    result = await localTranscriber(rendered.getChannelData(0), {
+      language: settings.language && settings.language !== "auto" ? settings.language : null,
+      task: "transcribe",
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`LOCAL_MODEL_ERROR: ${detail}`);
+  }
   return ipcRenderer.invoke("transcription:save", result.text);
 }
 
