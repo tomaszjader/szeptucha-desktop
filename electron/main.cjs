@@ -111,6 +111,27 @@ function saveTranscription(text, s) {
   status("success", `${t.statusSaved}: ${path.basename(file)}`);
   return { text, path: file };
 }
+function recordingErrorMessage(error, t) {
+  const raw = error instanceof Error ? error.message : String(error || "");
+  const normalized = raw.toLowerCase();
+  if (/(notallowed|permissiondenied|permission denied|access denied|permission)/.test(normalized)) {
+    return t.microphonePermission;
+  }
+  if (/(notfound|devicesnotfound|no microphone|microphone.*(not|unavailable)|audio input)/.test(normalized)) {
+    return t.microphoneUnavailable;
+  }
+  if (/(notreadable|trackstart|already in use|device busy|busy)/.test(normalized)) {
+    return t.microphoneBusy;
+  }
+  if (/(local_model_error|transformers|whisper|onnx|model|download)/.test(normalized)) {
+    return t.localModelFailed;
+  }
+  if (/(fetch failed|network|enotfound|econnreset|etimedout|timeout|offline)/.test(normalized)) {
+    return t.networkError;
+  }
+  return raw || t.recordingInterrupted;
+}
+
 function status(type, message) {
   win?.webContents.send("status", { type, message });
 }
@@ -664,5 +685,8 @@ ipcMain.on("recording:error", (_, m) => {
   pasteTranscription = false;
   showRecordingIndicator(false);
   trayMenu();
-  status("error", m);
+  const s = settings();
+  const lang = getLang(s);
+  const t = mainTranslations[lang] || mainTranslations.en;
+  status("error", recordingErrorMessage(m, t));
 });

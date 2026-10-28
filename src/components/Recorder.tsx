@@ -2,6 +2,27 @@ import React from "react";
 import { LoaderCircle, Mic, StopCircle, Sparkles, Keyboard, FolderOpen } from "lucide-react";
 import { translations, type AppLanguage } from "../translations";
 
+function friendlyRecordingError(error: string | null, t: (typeof translations)[AppLanguage]) {
+  const raw = error || "";
+  const normalized = raw.toLowerCase();
+  if (/(notallowed|permissiondenied|permission denied|access denied|permission)/.test(normalized)) {
+    return t.microphonePermission;
+  }
+  if (/(notfound|devicesnotfound|no microphone|microphone.*(not|unavailable)|audio input)/.test(normalized)) {
+    return t.microphoneUnavailable;
+  }
+  if (/(notreadable|trackstart|already in use|device busy|busy)/.test(normalized)) {
+    return t.microphoneBusy;
+  }
+  if (/(local_model_error|transformers|whisper|onnx|model|download)/.test(normalized)) {
+    return t.localModelFailed;
+  }
+  if (/(fetch failed|network|enotfound|econnreset|etimedout|timeout|offline)/.test(normalized)) {
+    return t.networkError;
+  }
+  return raw || t.recordingInterrupted;
+}
+
 interface RecorderProps {
   recording: boolean;
   recordingState: RecordingStatus;
@@ -28,6 +49,7 @@ export const Recorder: React.FC<RecorderProps> = ({
   const t = translations[lang];
   const audioLevel = recording ? recordingState.audioLevel : 0;
   const busy = ["starting", "transcribing", "loading-model"].includes(recordingState.phase);
+  const friendlyError = friendlyRecordingError(recordingState.error, t);
   const statusText = recordingState.phase === "starting"
     ? t.startingRecording
     : recordingState.phase === "loading-model"
@@ -35,7 +57,7 @@ export const Recorder: React.FC<RecorderProps> = ({
       : recordingState.phase === "transcribing"
         ? t.transcribingRecording
         : recordingState.phase === "error"
-          ? recordingState.error || t.failedToRecord
+          ? friendlyError || t.failedToRecord
           : recording
             ? t.recordingActive
             : null;
@@ -46,7 +68,7 @@ export const Recorder: React.FC<RecorderProps> = ({
   const description = recording
     ? t.recordingActiveDesc
     : recordingState.phase === "error"
-      ? recordingState.error || t.failedToRecord
+      ? friendlyError || t.failedToRecord
       : busy
         ? ""
         : t.readyToListenDesc;
