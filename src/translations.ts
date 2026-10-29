@@ -1,5 +1,12 @@
 export const translations = {
   pl: {
+    retainedRecording: "Nagranie pozostaje w pamięci do ponowienia lub odrzucenia. Zapisz audio przed zamknięciem aplikacji.",
+    retryTranscription: "Spróbuj ponownie",
+    saveAudio: "Zapisz audio",
+    discardRecording: "Odrzuć nagranie",
+    discardRecordingConfirm: "Odrzucić zachowane nagranie? Nie będzie można go odzyskać.",
+    audioSaveFailed: "Nie udało się zapisać audio. Nagranie nadal jest dostępne.",
+
     brandSubtitle: "Głos zamieniony w słowa",
     navRecording: "Nagrywanie",
     navHistory: "Historia",
@@ -100,6 +107,13 @@ export const translations = {
     readingAudioLevel: "Poziom mikrofonu",
   },
   en: {
+    retainedRecording: "The recording stays in memory until retried or discarded. Save the audio before closing the app.",
+    retryTranscription: "Retry transcription",
+    saveAudio: "Save audio",
+    discardRecording: "Discard recording",
+    discardRecordingConfirm: "Discard the retained recording? This cannot be undone.",
+    audioSaveFailed: "Could not save the audio. The recording is still available.",
+
     brandSubtitle: "Voice turned into words",
     navRecording: "Recording",
     navHistory: "History",
@@ -200,6 +214,13 @@ export const translations = {
     readingAudioLevel: "Microphone level",
   },
   de: {
+    retainedRecording: "Die Aufnahme bleibt bis zum erneuten Versuch oder Verwerfen im Speicher. Speichere das Audio vor dem Schließen der App.",
+    retryTranscription: "Erneut transkribieren",
+    saveAudio: "Audio speichern",
+    discardRecording: "Aufnahme verwerfen",
+    discardRecordingConfirm: "Gespeicherte Aufnahme verwerfen? Dies kann nicht rückgängig gemacht werden.",
+    audioSaveFailed: "Audio konnte nicht gespeichert werden. Die Aufnahme ist weiterhin verfügbar.",
+
     brandSubtitle: "Stimme wird zu Worten",
     navRecording: "Aufnahme",
     navHistory: "Verlauf",
@@ -300,6 +321,13 @@ export const translations = {
     readingAudioLevel: "Mikrofonpegel",
   },
   ru: {
+    retainedRecording: "Запись остаётся в памяти до повторной попытки или удаления. Сохраните аудио перед закрытием приложения.",
+    retryTranscription: "Повторить расшифровку",
+    saveAudio: "Сохранить аудио",
+    discardRecording: "Удалить запись",
+    discardRecordingConfirm: "Удалить сохранённую запись? Это действие нельзя отменить.",
+    audioSaveFailed: "Не удалось сохранить аудио. Запись по-прежнему доступна.",
+
     brandSubtitle: "Голос, превращённый в слова",
     navRecording: "Запись",
     navHistory: "История",

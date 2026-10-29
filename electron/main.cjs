@@ -634,6 +634,20 @@ ipcMain.handle("folder:open", () => {
     return shell.openPath(f);
   }
 });
+ipcMain.handle("recording:save-audio", async (_, data, mime) => {
+  if (!(data instanceof ArrayBuffer || ArrayBuffer.isView(data)) || !data.byteLength || data.byteLength > MAX_AUDIO_BYTES) {
+    throw new Error("Invalid audio data");
+  }
+  const extension = typeof mime === "string" && mime.startsWith("audio/ogg") ? "ogg" : "webm";
+  const result = await dialog.showSaveDialog(win, {
+    defaultPath: `Szeptucha-${Date.now()}.${extension}`,
+    filters: [{ name: "Audio", extensions: [extension] }],
+  });
+  if (result.canceled || !result.filePath) return false;
+  const buffer = data instanceof ArrayBuffer ? Buffer.from(data) : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+  await fs.promises.writeFile(result.filePath, buffer);
+  return true;
+});
 ipcMain.handle("audio:transcribe", (_, b, m) => transcribe(b, m));
 ipcMain.handle("transcription:save", (_, text) => {
   const s = settings();

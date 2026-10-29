@@ -26,6 +26,9 @@ interface Window {
     chooseFolder(): Promise<string | null>;
     toggleRecording(): Promise<{ text: string; path: string } | undefined>;
     correctSelection(): Promise<{ ok: boolean; message: string }>;
+    retryTranscription(): Promise<{ text: string; path: string } | undefined>;
+    discardRecording(): boolean;
+    saveRecording(): Promise<boolean>;
     getRecordingState(): RecordingStatus;
     onRecordingState(cb: (state: RecordingStatus) => void): () => void;
     onStatus(cb: (s: { type: string; message: string }) => void): () => void;
@@ -44,6 +47,7 @@ type RecordingStatus = {
   downloadProgress: number | null;
   audioLevel: number;
   error: string | null;
+  canRetry: boolean;
 };
 
 interface Settings {

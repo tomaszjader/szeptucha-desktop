@@ -1205,3 +1205,6 @@ select:focus {
   color: #60a5fa;
 }
 
+
+.recording-recovery { max-width: 520px; margin: 16px auto; }
+.recording-recovery button { margin: 4px; }
