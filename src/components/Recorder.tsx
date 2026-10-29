@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { LoaderCircle, Mic, StopCircle, Sparkles, Keyboard, FolderOpen } from "lucide-react";
 import { translations, type AppLanguage } from "../translations";
 
@@ -47,6 +47,15 @@ export const Recorder: React.FC<RecorderProps> = ({
   onCorrectText,
 }) => {
   const t = translations[lang];
+  const [savingAudio, setSavingAudio] = useState(false);
+  const [audioSaveError, setAudioSaveError] = useState(false);
+  const saveAudio = async () => {
+    setSavingAudio(true);
+    setAudioSaveError(false);
+    try { await window.szeptucha.saveRecording(); }
+    catch { setAudioSaveError(true); }
+    finally { setSavingAudio(false); }
+  };
   const audioLevel = recording ? recordingState.audioLevel : 0;
   const busy = ["starting", "transcribing", "loading-model"].includes(recordingState.phase);
   const friendlyError = friendlyRecordingError(recordingState.error, t);
@@ -114,6 +123,16 @@ export const Recorder: React.FC<RecorderProps> = ({
           >
             {description}
           </p>
+        )}
+
+        {recordingState.canRetry && (
+          <div className="recording-recovery" role="group" aria-label={t.retainedRecording}>
+            <p>{t.retainedRecording}</p>
+            <button className="secondary" disabled={busy || savingAudio} onClick={() => void window.szeptucha.retryTranscription()}>{t.retryTranscription}</button>
+            <button className="secondary" disabled={busy || savingAudio} onClick={() => void saveAudio()}>{t.saveAudio}</button>
+            <button className="secondary" disabled={busy || savingAudio} onClick={() => { if (window.confirm(t.discardRecordingConfirm)) window.szeptucha.discardRecording(); }}>{t.discardRecording}</button>
+            {audioSaveError && <p role="alert">{t.audioSaveFailed}</p>}
+          </div>
         )}
 
         {showDuration && (

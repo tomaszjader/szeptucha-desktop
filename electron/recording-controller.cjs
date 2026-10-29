@@ -1,8 +1,9 @@
 // One lifecycle for the button, global shortcut and tray. The preload owns it,
 // so hiding the window or switching React tabs cannot interrupt a recording.
 function createRecordingController({ getUserMedia, createMediaRecorder, transcribe, complete, onState, onError, now = Date.now }) {
-  let state = { phase: "idle", source: "interface", startedAt: null, durationMs: 0, downloadProgress: null, audioLevel: 0, error: null };
+  let state = { phase: "idle", source: "interface", startedAt: null, durationMs: 0, downloadProgress: null, audioLevel: 0, error: null, canRetry: false };
   let session = null;
+  let pending = null;
   const listeners = new Set();
   const snapshot = () => ({ ...state });
 
@@ -68,14 +69,15 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
     if (session !== active) return;
     releaseCapture(active);
     session = null;
+    if (active.blob?.size) pending = active;
     const message = error instanceof Error ? error.message : String(error);
-    publish({ phase: "error", downloadProgress: null, audioLevel: 0, error: message,
+    publish({ phase: "error", downloadProgress: null, audioLevel: 0, error: message, canRetry: Boolean(pending),
       durationMs: state.phase === "recording" ? Math.max(0, now() - state.startedAt) : state.durationMs });
     onError(message);
   }
 
   async function start(source) {
-    if (!["idle", "completed", "error"].includes(state.phase)) return;
+    if (pending || !["idle", "completed", "error"].includes(state.phase)) return;
     const active = { stream: null, recorder: null, chunks: [], rejectStop: null,
       levelContext: null, levelAnalyser: null, levelSource: null, levelTimer: null };
     session = active;
@@ -99,6 +101,35 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
     }
   }
 
+  async function processRecording(active) {
+    try {
+      if (!active.hasResult) {
+        active.result = await transcribe(active.blob, patch => {
+          if (session === active) publish(patch);
+        });
+        active.hasResult = true;
+      }
+      await complete(active.result);
+      if (session === active) {
+        pending = null;
+        session = null;
+        active.blob = null;
+        publish({ phase: "completed", downloadProgress: null, audioLevel: 0, error: null, canRetry: false });
+      }
+      return active.result;
+    } catch (error) {
+      fail(active, error);
+    }
+  }
+
+  async function retry() {
+    if (!pending || session || state.phase !== "error") return;
+    const active = pending;
+    session = active;
+    publish({ phase: "transcribing", error: null, downloadProgress: null, canRetry: true });
+    return processRecording(active);
+  }
+
   async function stop() {
     if (state.phase !== "recording" || !session) return;
     const active = session;
@@ -112,15 +143,8 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
       active.rejectStop = null;
       releaseCapture(active);
       active.chunks = [];
-      const result = await transcribe(blob, patch => {
-        if (session === active) publish(patch);
-      });
-      await complete(result);
-      if (session === active) {
-        session = null;
-        publish({ phase: "completed", downloadProgress: null, audioLevel: 0 });
-      }
-      return result;
+      active.blob = blob;
+      return await processRecording(active);
     } catch (error) {
       fail(active, error);
     } finally {
@@ -130,6 +154,15 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
 
   return {
     getState: snapshot,
+    retry,
+    getRetainedAudio() { return pending?.blob || null; },
+    discard() {
+      if (session || !pending) return false;
+      pending.blob = null;
+      pending = null;
+      publish({ phase: "idle", error: null, canRetry: false });
+      return true;
+    },
     subscribe(listener) {
       listeners.add(listener);
       listener(snapshot());
@@ -137,6 +170,7 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
     },
     toggle(source = "interface") {
       if (state.phase === "recording") return stop();
+      if (pending) return retry();
       return start(source);
     },
   };

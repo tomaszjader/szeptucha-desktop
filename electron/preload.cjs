@@ -96,6 +96,13 @@ contextBridge.exposeInMainWorld("szeptucha", {
   openFolder: () => ipcRenderer.invoke("folder:open"),
   correctSelection: () => ipcRenderer.invoke("text:correct"),
   toggleRecording: () => recording.toggle("interface"),
+  retryTranscription: () => recording.retry(),
+  discardRecording: () => recording.discard(),
+  saveRecording: async () => {
+    const blob = recording.getRetainedAudio();
+    if (!blob) return false;
+    return ipcRenderer.invoke("recording:save-audio", await blob.arrayBuffer(), blob.type);
+  },
   getRecordingState: () => recording.getState(),
   onRecordingState: cb => recording.subscribe(cb),
   getNotes: () => ipcRenderer.invoke("notes:get"),
