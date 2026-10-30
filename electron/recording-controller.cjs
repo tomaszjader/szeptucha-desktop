@@ -120,6 +120,7 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
         active.hasResult = true;
       }
       attempt.signal.throwIfAborted();
+      clearTimeout(timeout);
       await complete(active.result);
       if (session === active) {
         pending = null;
