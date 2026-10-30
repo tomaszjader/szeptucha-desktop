@@ -1,5 +1,9 @@
 export const translations = {
   pl: {
+    cancelTranscription: "Anuluj transkrypcję",
+    transcriptionCancelled: "Transkrypcja anulowana. Nagranie jest dostępne do ponowienia lub zapisania.",
+    transcriptionTimeout: "Przekroczono czas oczekiwania. Nagranie jest dostępne do ponowienia lub zapisania.",
+
     retainedRecording: "Nagranie pozostaje w pamięci do ponowienia lub odrzucenia. Zapisz audio przed zamknięciem aplikacji.",
     retryTranscription: "Spróbuj ponownie",
     saveAudio: "Zapisz audio",
@@ -107,6 +111,10 @@ export const translations = {
     readingAudioLevel: "Poziom mikrofonu",
   },
   en: {
+    cancelTranscription: "Cancel transcription",
+    transcriptionCancelled: "Transcription cancelled. The recording is available to retry or save.",
+    transcriptionTimeout: "The request timed out. The recording is available to retry or save.",
+
     retainedRecording: "The recording stays in memory until retried or discarded. Save the audio before closing the app.",
     retryTranscription: "Retry transcription",
     saveAudio: "Save audio",
@@ -214,6 +222,10 @@ export const translations = {
     readingAudioLevel: "Microphone level",
   },
   de: {
+    cancelTranscription: "Transkription abbrechen",
+    transcriptionCancelled: "Transkription abgebrochen. Die Aufnahme kann erneut verarbeitet oder gespeichert werden.",
+    transcriptionTimeout: "Zeitlimit überschritten. Die Aufnahme kann erneut verarbeitet oder gespeichert werden.",
+
     retainedRecording: "Die Aufnahme bleibt bis zum erneuten Versuch oder Verwerfen im Speicher. Speichere das Audio vor dem Schließen der App.",
     retryTranscription: "Erneut transkribieren",
     saveAudio: "Audio speichern",
@@ -321,6 +333,10 @@ export const translations = {
     readingAudioLevel: "Mikrofonpegel",
   },
   ru: {
+    cancelTranscription: "Отменить расшифровку",
+    transcriptionCancelled: "Расшифровка отменена. Запись можно обработать повторно или сохранить.",
+    transcriptionTimeout: "Время ожидания истекло. Запись можно обработать повторно или сохранить.",
+
     retainedRecording: "Запись остаётся в памяти до повторной попытки или удаления. Сохраните аудио перед закрытием приложения.",
     retryTranscription: "Повторить расшифровку",
     saveAudio: "Сохранить аудио",

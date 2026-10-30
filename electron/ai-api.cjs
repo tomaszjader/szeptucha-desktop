@@ -194,5 +194,31 @@ module.exports = {
   apiErrorMessage,
   geminiText,
   correctTextWithApi,
-  transcribeAudioWithApi,
+  transcribeAudioWithApi: withRequestDeadline(transcribeAudioWithApi),
 };
+
+// Cover the complete request, including response-body reading, and propagate cancellation.
+function withRequestDeadline(operation) {
+  return async (options) => {
+    const controller = new AbortController();
+    const parent = options.signal;
+    const abort = () => controller.abort(parent.reason || new Error("TRANSCRIPTION_CANCELLED"));
+    if (parent?.aborted) abort();
+    else parent?.addEventListener("abort", abort, { once: true });
+    const timeout = setTimeout(() => controller.abort(new Error("TRANSCRIPTION_TIMEOUT")), options.timeoutMs ?? 120_000);
+    let onAbort;
+    const interrupted = new Promise((_, reject) => {
+      onAbort = () => reject(controller.signal.reason);
+      if (controller.signal.aborted) onAbort();
+      else controller.signal.addEventListener("abort", onAbort, { once: true });
+    });
+    try {
+      const fetchImpl = options.fetchImpl || globalThis.fetch;
+      return await Promise.race([controller.signal.aborted ? Promise.reject(controller.signal.reason) : operation({ ...options, fetchImpl: (url, init) => fetchImpl(url, { ...init, signal: controller.signal }) }), interrupted]);
+    } finally {
+      clearTimeout(timeout);
+      parent?.removeEventListener("abort", abort);
+      controller.signal.removeEventListener("abort", onAbort);
+    }
+  };
+}

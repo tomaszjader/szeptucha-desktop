@@ -114,6 +114,8 @@ function saveTranscription(text, s) {
 function recordingErrorMessage(error, t) {
   const raw = error instanceof Error ? error.message : String(error || "");
   const normalized = raw.toLowerCase();
+  if (normalized.includes("transcription_cancelled")) return t.transcriptionCancelled;
+  if (normalized.includes("transcription_timeout")) return t.transcriptionTimeout;
   if (/(notallowed|permissiondenied|permission denied|access denied|permission)/.test(normalized)) {
     return t.microphonePermission;
   }
@@ -407,7 +409,7 @@ async function correctText() {
     return { ok: false, message: e.message };
   }
 }
-async function transcribe(buf, mime) {
+async function transcribe(buf, mime, signal) {
   const isAudioBuffer =
     buf instanceof ArrayBuffer || ArrayBuffer.isView(buf);
   const audioMime = normalizeAudioMime(mime);
@@ -426,12 +428,14 @@ async function transcribe(buf, mime) {
   status("info", t.statusTranscribing);
 
   const text = await transcribeAudioWithApi({
+    signal,
     buf,
     mime: audioMime,
     settings: s,
     lang,
     systemLanguage: getSystemLanguage(),
   });
+  signal?.throwIfAborted();
   return saveTranscription(text, s);
 }
 
@@ -648,7 +652,17 @@ ipcMain.handle("recording:save-audio", async (_, data, mime) => {
   await fs.promises.writeFile(result.filePath, buffer);
   return true;
 });
-ipcMain.handle("audio:transcribe", (_, b, m) => transcribe(b, m));
+const transcriptionRequests = new Map();
+ipcMain.handle("audio:transcribe", async (event, b, m, requestId) => {
+  const key = `${event.sender.id}:${requestId}`;
+  const controller = new AbortController();
+  transcriptionRequests.set(key, controller);
+  try { return await transcribe(b, m, controller.signal); }
+  finally { transcriptionRequests.delete(key); }
+});
+ipcMain.on("audio:cancel", (event, requestId) => {
+  transcriptionRequests.get(`${event.sender.id}:${requestId}`)?.abort(new Error("TRANSCRIPTION_CANCELLED"));
+});
 ipcMain.handle("transcription:save", (_, text) => {
   const s = settings();
   return saveTranscription(text, s);

@@ -1,6 +1,6 @@
 // One lifecycle for the button, global shortcut and tray. The preload owns it,
 // so hiding the window or switching React tabs cannot interrupt a recording.
-function createRecordingController({ getUserMedia, createMediaRecorder, transcribe, complete, onState, onError, now = Date.now }) {
+function createRecordingController({ getUserMedia, createMediaRecorder, transcribe, complete, onState, onError, now = Date.now, transcriptionTimeoutMs = 180_000 }) {
   let state = { phase: "idle", source: "interface", startedAt: null, durationMs: 0, downloadProgress: null, audioLevel: 0, error: null, canRetry: false };
   let session = null;
   let pending = null;
@@ -102,13 +102,24 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
   }
 
   async function processRecording(active) {
+    const attempt = new AbortController();
+    active.attempt = attempt;
+    const timeout = setTimeout(() => attempt.abort(new Error("TRANSCRIPTION_TIMEOUT")), transcriptionTimeoutMs);
+    let onAbort;
+    const interrupted = new Promise((_, reject) => {
+      onAbort = () => reject(attempt.signal.reason);
+      attempt.signal.addEventListener("abort", onAbort, { once: true });
+    });
     try {
       if (!active.hasResult) {
-        active.result = await transcribe(active.blob, patch => {
-          if (session === active) publish(patch);
-        });
+        const result = await Promise.race([transcribe(active.blob, patch => {
+          if (session === active && active.attempt === attempt && !attempt.signal.aborted) publish(patch);
+        }, attempt.signal), interrupted]);
+        attempt.signal.throwIfAborted();
+        active.result = result;
         active.hasResult = true;
       }
+      attempt.signal.throwIfAborted();
       await complete(active.result);
       if (session === active) {
         pending = null;
@@ -119,6 +130,10 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
       return active.result;
     } catch (error) {
       fail(active, error);
+    } finally {
+      clearTimeout(timeout);
+      attempt.signal.removeEventListener("abort", onAbort);
+      if (active.attempt === attempt) active.attempt = null;
     }
   }
 
@@ -155,6 +170,11 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
   return {
     getState: snapshot,
     retry,
+    cancel() {
+      if (!session?.blob || !session.attempt || session.hasResult) return false;
+      session.attempt.abort(new Error("TRANSCRIPTION_CANCELLED"));
+      return true;
+    },
     getRetainedAudio() { return pending?.blob || null; },
     discard() {
       if (session || !pending) return false;
