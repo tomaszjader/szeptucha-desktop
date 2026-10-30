@@ -9,7 +9,8 @@ const WHISPER_MODELS = {
   "whisper-small": "onnx-community/whisper-small",
 };
 
-async function transcribeLocally(blob, settings, report) {
+async function transcribeLocally(blob, settings, report, signal) {
+  signal.throwIfAborted();
   const context = new AudioContext();
   let rendered;
   try {
@@ -24,6 +25,7 @@ async function transcribeLocally(blob, settings, report) {
     await context.close();
   }
 
+  signal.throwIfAborted();
   const hfModelId = WHISPER_MODELS[settings.whisperModel] || WHISPER_MODELS["whisper-tiny"];
   if (!localTranscriber || currentWhisperModel !== hfModelId) {
     report({ phase: "loading-model", downloadProgress: null });
@@ -48,6 +50,7 @@ async function transcribeLocally(blob, settings, report) {
       const detail = error instanceof Error ? error.message : String(error);
       throw new Error(`LOCAL_MODEL_ERROR: ${detail}`);
     }
+    signal.throwIfAborted();
     localTranscriber = nextTranscriber;
     currentWhisperModel = hfModelId;
   }
@@ -63,6 +66,7 @@ async function transcribeLocally(blob, settings, report) {
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(`LOCAL_MODEL_ERROR: ${detail}`);
   }
+  signal.throwIfAborted();
   return ipcRenderer.invoke("transcription:save", result.text);
 }
 
@@ -71,11 +75,18 @@ const recording = createRecordingController({
     audio: { echoCancellation: true, noiseSuppression: true },
   }),
   createMediaRecorder: stream => new MediaRecorder(stream),
-  transcribe: async (blob, report) => {
+  transcribe: async (blob, report, signal) => {
     const settings = await ipcRenderer.invoke("settings:get");
-    return settings.provider === "local" || !settings.apiKey
-      ? transcribeLocally(blob, settings, report)
-      : ipcRenderer.invoke("audio:transcribe", await blob.arrayBuffer(), blob.type);
+    signal.throwIfAborted();
+    if (settings.provider === "local" || !settings.apiKey) return transcribeLocally(blob, settings, report, signal);
+    const data = await blob.arrayBuffer();
+    signal.throwIfAborted();
+    const requestId = crypto.randomUUID();
+    const cancel = () => ipcRenderer.send("audio:cancel", requestId);
+    const request = ipcRenderer.invoke("audio:transcribe", data, blob.type, requestId);
+    signal.addEventListener("abort", cancel, { once: true });
+    try { return await request; }
+    finally { signal.removeEventListener("abort", cancel); }
   },
   complete: result => ipcRenderer.invoke("transcription:paste", result.text),
   onState: state => ipcRenderer.send("recording:state", state),
@@ -97,6 +108,7 @@ contextBridge.exposeInMainWorld("szeptucha", {
   correctSelection: () => ipcRenderer.invoke("text:correct"),
   toggleRecording: () => recording.toggle("interface"),
   retryTranscription: () => recording.retry(),
+  cancelTranscription: () => recording.cancel(),
   discardRecording: () => recording.discard(),
   saveRecording: async () => {
     const blob = recording.getRetainedAudio();

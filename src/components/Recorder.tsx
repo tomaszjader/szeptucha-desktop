@@ -5,6 +5,8 @@ import { translations, type AppLanguage } from "../translations";
 function friendlyRecordingError(error: string | null, t: (typeof translations)[AppLanguage]) {
   const raw = error || "";
   const normalized = raw.toLowerCase();
+  if (normalized.includes("transcription_cancelled")) return t.transcriptionCancelled;
+  if (normalized.includes("transcription_timeout")) return t.transcriptionTimeout;
   if (/(notallowed|permissiondenied|permission denied|access denied|permission)/.test(normalized)) {
     return t.microphonePermission;
   }
@@ -125,6 +127,9 @@ export const Recorder: React.FC<RecorderProps> = ({
           </p>
         )}
 
+        {["transcribing", "loading-model"].includes(recordingState.phase) && (
+          <button className="secondary" onClick={() => window.szeptucha.cancelTranscription()}>{t.cancelTranscription}</button>
+        )}
         {recordingState.canRetry && (
           <div className="recording-recovery" role="group" aria-label={t.retainedRecording}>
             <p>{t.retainedRecording}</p>

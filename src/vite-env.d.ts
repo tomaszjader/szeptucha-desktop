@@ -28,6 +28,7 @@ interface Window {
     correctSelection(): Promise<{ ok: boolean; message: string }>;
     retryTranscription(): Promise<{ text: string; path: string } | undefined>;
     discardRecording(): boolean;
+    cancelTranscription(): boolean;
     saveRecording(): Promise<boolean>;
     getRecordingState(): RecordingStatus;
     onRecordingState(cb: (state: RecordingStatus) => void): () => void;

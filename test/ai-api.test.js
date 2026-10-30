@@ -126,3 +126,37 @@ test("rejects empty corrections and unsupported local correction", async () => {
     /Lokalny silnik nie obsługuje/,
   );
 });
+
+const baseTranscription = {
+  buf: Buffer.from("audio"), mime: "audio/webm", lang: "en", systemLanguage: "en",
+  settings: { provider: "openai", apiKey: "key", model: "gpt-4o-mini-transcribe", language: "en" },
+};
+test("API deadline covers a response body that never finishes", async () => {
+  let signal;
+  await assert.rejects(transcribeAudioWithApi({
+    ...baseTranscription, timeoutMs: 10,
+    fetchImpl: async (_, init) => { signal = init.signal; return { ok: true, text: () => new Promise(() => {}) }; },
+  }), /TRANSCRIPTION_TIMEOUT/);
+  assert.equal(signal.aborted, true);
+});
+test("cancelling an API request aborts fetch and prevents a late response from succeeding", async () => {
+  const controller = new AbortController();
+  let requestSignal;
+  let finish;
+  const request = transcribeAudioWithApi({
+    ...baseTranscription, signal: controller.signal,
+    fetchImpl: (_, init) => { requestSignal = init.signal; return new Promise(resolve => { finish = resolve; }); },
+  });
+  controller.abort(new Error("TRANSCRIPTION_CANCELLED"));
+  await assert.rejects(request, /TRANSCRIPTION_CANCELLED/);
+  assert.equal(requestSignal.aborted, true);
+  finish(response({ text: "late text" }));
+});
+test("an already cancelled request never calls fetch", async () => {
+  const controller = new AbortController();
+  controller.abort(new Error("TRANSCRIPTION_CANCELLED"));
+  await assert.rejects(transcribeAudioWithApi({
+    ...baseTranscription, signal: controller.signal,
+    fetchImpl: () => { assert.fail("fetch must not run"); },
+  }), /TRANSCRIPTION_CANCELLED/);
+});

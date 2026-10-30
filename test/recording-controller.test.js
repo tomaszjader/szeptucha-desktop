@@ -2,7 +2,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { createRecordingController } = require("../electron/recording-controller.cjs");
 
-function makeHarness({ getUserMedia, transcribe, complete } = {}) {
+function makeHarness({ getUserMedia, transcribe, complete, transcriptionTimeoutMs } = {}) {
   const events = [];
   const errors = [];
   let trackStops = 0;
@@ -11,6 +11,7 @@ function makeHarness({ getUserMedia, transcribe, complete } = {}) {
     getTracks: () => [{ stop: () => { trackStops += 1; } }],
   };
   const controller = createRecordingController({
+    transcriptionTimeoutMs,
     getUserMedia: getUserMedia || (async () => stream),
     createMediaRecorder: () => {
       recorder = {
@@ -179,4 +180,51 @@ test("discard frees retained audio and permits a new recording", async () => {
   await harness.controller.toggle();
   assert.equal(harness.controller.getState().phase, "recording");
   await harness.controller.toggle();
+});
+
+test("cancel preserves audio and ignores a late result and progress after retry", async () => {
+  let finishOld;
+  let oldReport;
+  let oldSignal;
+  let calls = 0;
+  const completed = [];
+  const harness = makeHarness({
+    transcribe: async (blob, report, signal) => {
+      if (++calls === 1) {
+        oldReport = report; oldSignal = signal;
+        return new Promise(resolve => { finishOld = resolve; });
+      }
+      return "retry result";
+    },
+    complete: async result => completed.push(result),
+  });
+  await harness.controller.toggle();
+  const stop = harness.controller.toggle();
+  await Promise.resolve();
+  assert.equal(harness.controller.cancel(), true);
+  await stop;
+  assert.equal(oldSignal.aborted, true);
+  assert.equal(harness.controller.getState().error, "TRANSCRIPTION_CANCELLED");
+  assert.equal(harness.controller.getState().canRetry, true);
+  await harness.controller.retry();
+  oldReport({ phase: "loading-model" });
+  finishOld("late result");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(harness.controller.getState().phase, "completed");
+  assert.deepEqual(completed, ["retry result"]);
+});
+
+test("timeout unblocks transcription and retains the audio even if the worker never responds", async () => {
+  let signal;
+  const harness = makeHarness({
+    transcriptionTimeoutMs: 10,
+    transcribe: async (_, __, attemptSignal) => { signal = attemptSignal; return new Promise(() => {}); },
+  });
+  await harness.controller.toggle();
+  await harness.controller.toggle();
+  assert.equal(signal.aborted, true);
+  assert.equal(harness.controller.getState().error, "TRANSCRIPTION_TIMEOUT");
+  assert.equal(await harness.controller.getRetainedAudio().text(), "recorded audio");
+  assert.equal(harness.controller.cancel(), false);
+  harness.controller.discard();
 });
