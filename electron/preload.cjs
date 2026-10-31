@@ -1,15 +1,6 @@
 const { contextBridge, ipcRenderer } = require("electron");
 const { createRecordingController } = require("./recording-controller.cjs");
-let localTranscriber;
-let currentWhisperModel = null;
-
-const WHISPER_MODELS = {
-  "whisper-tiny": "onnx-community/whisper-tiny",
-  "whisper-base": "onnx-community/whisper-base",
-  "whisper-small": "onnx-community/whisper-small",
-};
-
-async function transcribeLocally(blob, settings, report, signal) {
+async function transcribeLocally(blob, report, signal) {
   signal.throwIfAborted();
   const context = new AudioContext();
   let rendered;
@@ -26,48 +17,23 @@ async function transcribeLocally(blob, settings, report, signal) {
   }
 
   signal.throwIfAborted();
-  const hfModelId = WHISPER_MODELS[settings.whisperModel] || WHISPER_MODELS["whisper-tiny"];
-  if (!localTranscriber || currentWhisperModel !== hfModelId) {
-    report({ phase: "loading-model", downloadProgress: null });
-    const { pipeline } = await import("@huggingface/transformers");
-    // Transformers reports aggregate progress as model files are downloaded.
-    // Keep the indicator indeterminate when the total size is unavailable.
-    let lastProgress = null;
-    let nextTranscriber;
-    try {
-      nextTranscriber = await pipeline("automatic-speech-recognition", hfModelId, {
-        progress_callback: event => {
-          if (event.status !== "progress_total") return;
-          const progress = event.total > 0 && Number.isFinite(event.progress)
-            ? Math.max(0, Math.min(100, Math.floor(event.progress)))
-            : null;
-          if (progress === lastProgress) return;
-          lastProgress = progress;
-          report({ phase: "loading-model", downloadProgress: progress });
-        },
-      });
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      throw new Error(`LOCAL_MODEL_ERROR: ${detail}`);
-    }
-    signal.throwIfAborted();
-    localTranscriber = nextTranscriber;
-    currentWhisperModel = hfModelId;
-  }
+  return requestTranscription("audio:transcribe-local", rendered.getChannelData(0), null, report, signal);
+}
 
-  report({ phase: "transcribing", downloadProgress: null });
-  let result;
-  try {
-    result = await localTranscriber(rendered.getChannelData(0), {
-      language: settings.language && settings.language !== "auto" ? settings.language : null,
-      task: "transcribe",
-    });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`LOCAL_MODEL_ERROR: ${detail}`);
-  }
+async function requestTranscription(channel, data, mime, report, signal) {
   signal.throwIfAborted();
-  return ipcRenderer.invoke("transcription:save", result.text);
+  const requestId = crypto.randomUUID();
+  const cancel = () => ipcRenderer.send("audio:cancel", requestId);
+  const progress = (_, message) => {
+    if (!signal.aborted && message?.requestId === requestId) report(message.patch);
+  };
+  ipcRenderer.on("audio:local-progress", progress);
+  signal.addEventListener("abort", cancel, { once: true });
+  try { return await ipcRenderer.invoke(channel, data, mime, requestId); }
+  finally {
+    signal.removeEventListener("abort", cancel);
+    ipcRenderer.removeListener("audio:local-progress", progress);
+  }
 }
 
 const recording = createRecordingController({
@@ -78,15 +44,10 @@ const recording = createRecordingController({
   transcribe: async (blob, report, signal) => {
     const settings = await ipcRenderer.invoke("settings:get");
     signal.throwIfAborted();
-    if (settings.provider === "local" || !settings.apiKey) return transcribeLocally(blob, settings, report, signal);
+    if (settings.provider === "local" || !settings.apiKey) return transcribeLocally(blob, report, signal);
     const data = await blob.arrayBuffer();
     signal.throwIfAborted();
-    const requestId = crypto.randomUUID();
-    const cancel = () => ipcRenderer.send("audio:cancel", requestId);
-    const request = ipcRenderer.invoke("audio:transcribe", data, blob.type, requestId);
-    signal.addEventListener("abort", cancel, { once: true });
-    try { return await request; }
-    finally { signal.removeEventListener("abort", cancel); }
+    return requestTranscription("audio:transcribe", data, blob.type, report, signal);
   },
   complete: result => ipcRenderer.invoke("transcription:paste", result.text),
   onState: state => ipcRenderer.send("recording:state", state),
