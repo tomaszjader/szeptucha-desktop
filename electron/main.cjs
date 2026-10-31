@@ -11,6 +11,7 @@ const {
   shell,
   clipboard,
   safeStorage,
+  utilityProcess,
 } = require("electron");
 const path = require("path"),
   fs = require("fs"),
@@ -33,6 +34,16 @@ const {
 } = require("./settings.cjs");
 const { correctTextWithApi, transcribeAudioWithApi } = require("./ai-api.cjs");
 const { createUpdater } = require("./updater.cjs");
+const { createWhisperProcess } = require("./whisper-process.cjs");
+let whisperProcess;
+function localWhisper() {
+  if (!whisperProcess) whisperProcess = createWhisperProcess({
+    fork: (...args) => utilityProcess.fork(...args),
+    workerPath: path.join(__dirname, "whisper-worker.cjs"),
+    cacheDirectory: path.join(app.getPath("userData"), "whisper-cache"),
+  });
+  return whisperProcess;
+}
 
 function getSystemLanguage() {
   const locale = app.getLocale();
@@ -606,7 +617,7 @@ app.whenReady().then(async () => {
   shortcuts();
 });
 app.on("window-all-closed", () => {});
-app.on("before-quit", () => { app.isQuiting = true; });
+app.on("before-quit", () => { app.isQuiting = true; whisperProcess?.dispose(); });
 app.on("will-quit", () => globalShortcut.unregisterAll());
 ipcMain.on("ocr:show", (event) => { if (event.sender === win?.webContents) ocr.show(); });
 ipcMain.on("theme:set", (_, theme) => {
@@ -653,13 +664,37 @@ ipcMain.handle("recording:save-audio", async (_, data, mime) => {
   return true;
 });
 const transcriptionRequests = new Map();
-ipcMain.handle("audio:transcribe", async (event, b, m, requestId) => {
+async function withTranscriptionRequest(event, requestId, operation) {
+  if (typeof requestId !== "string" || requestId.length > 100) throw new Error("Invalid transcription request");
   const key = `${event.sender.id}:${requestId}`;
+  if (transcriptionRequests.has(key)) throw new Error("Duplicate transcription request");
   const controller = new AbortController();
+  const cancel = () => controller.abort(new Error("TRANSCRIPTION_CANCELLED"));
   transcriptionRequests.set(key, controller);
-  try { return await transcribe(b, m, controller.signal); }
-  finally { transcriptionRequests.delete(key); }
-});
+  event.sender.once("destroyed", cancel);
+  try { return await operation(controller.signal); }
+  finally {
+    transcriptionRequests.delete(key);
+    event.sender.removeListener("destroyed", cancel);
+  }
+}
+ipcMain.handle("audio:transcribe", (event, b, m, requestId) =>
+  withTranscriptionRequest(event, requestId, signal => transcribe(b, m, signal)));
+ipcMain.handle("audio:transcribe-local", (event, samples, _, requestId) =>
+  withTranscriptionRequest(event, requestId, async signal => {
+    if (!(samples instanceof Float32Array) || !samples.length || samples.byteLength > MAX_AUDIO_BYTES) {
+      throw new Error("Invalid audio samples");
+    }
+    const s = settings();
+    const text = await localWhisper().transcribe(samples, { whisperModel: s.whisperModel, language: s.language }, {
+      signal,
+      onProgress: patch => {
+        if (!signal.aborted && !event.sender.isDestroyed()) event.sender.send("audio:local-progress", { requestId, patch });
+      },
+    });
+    signal.throwIfAborted();
+    return saveTranscription(text, s);
+  }));
 ipcMain.on("audio:cancel", (event, requestId) => {
   transcriptionRequests.get(`${event.sender.id}:${requestId}`)?.abort(new Error("TRANSCRIPTION_CANCELLED"));
 });

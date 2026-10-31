@@ -73,6 +73,11 @@ jobs:
             throw "Installed application was not found at $appPath."
           }
 
+          & .\node_modules\.bin\electron.cmd scripts/whisper-process-smoke.cjs (Join-Path $installDir "resources/app.asar")
+          if ($LASTEXITCODE -ne 0) {
+            throw "Whisper process cancellation smoke test failed."
+          }
+
           $app = Start-Process -FilePath $appPath -ArgumentList "--remote-debugging-port=9223" -PassThru
           try {
             node scripts/windows-ui-smoke.cjs
