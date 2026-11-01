@@ -137,7 +137,7 @@ export const Recorder: React.FC<RecorderProps> = ({
         {recordingState.draftWarning && <p role="alert">{t.draftWarning}</p>}
         {recordingState.recoveryFailed && <button className="secondary" onClick={onToggleRecording}>{t.retry}</button>}
         {recordingState.canRetry && (
-          <div className="recording-recovery" role="group" aria-label={t.retainedRecording}>
+          <div className="recording-recovery" role="group" aria-label={recordingState.draftSaved ? t.draftSaved : t.retainedRecording}>
             <p>{recordingState.draftSaved ? t.draftSaved : t.retainedRecording}</p>
             <button className="secondary" disabled={busy || savingAudio} onClick={() => void window.szeptucha.retryTranscription()}>{t.retryTranscription}</button>
             <button className="secondary" disabled={busy || savingAudio} onClick={() => void saveAudio()}>{t.saveAudio}</button>
