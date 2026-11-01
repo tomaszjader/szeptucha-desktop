@@ -191,3 +191,15 @@ test("loading blocks a new capture and failed recovery does not overwrite old au
   await h.recording.toggle();
   assert.equal(h.captures, 0);
 });
+
+test("capture failure retains partial audio and discard waits for pending writes", async t => {
+  const { store } = await fixture(t);
+  const h = controller(adapter(store));
+  await h.recording.restore(); await h.recording.toggle();
+  h.recorder.chunk("partial audio");
+  h.recorder.onerror({ error: new Error("microphone disconnected") });
+  assert.equal(h.recording.getState().canRetry, true);
+  assert.equal(await h.recording.getRetainedAudio().text(), "partial audio");
+  assert.equal(await h.recording.discard(), true);
+  assert.equal(await store.load(), null);
+});
