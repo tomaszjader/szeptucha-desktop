@@ -37,6 +37,16 @@ async function requestTranscription(channel, data, mime, report, signal) {
 }
 
 const recording = createRecordingController({
+  drafts: {
+    load: async () => {
+      const saved = await ipcRenderer.invoke("recording:draft-load");
+      return saved ? { ...saved, blob: new Blob([saved.audio], { type: saved.mime }) } : null;
+    },
+    append: async (id, blob, meta) => ipcRenderer.invoke("recording:draft-append", id, await blob.arrayBuffer(), meta),
+    save: async (id, blob, meta) => ipcRenderer.invoke("recording:draft-save", id, await blob.arrayBuffer(), meta),
+    saveResult: (id, result) => ipcRenderer.invoke("recording:draft-result", id, result),
+    clear: id => ipcRenderer.invoke("recording:draft-clear", id),
+  },
   getUserMedia: () => navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: true, noiseSuppression: true },
   }),
@@ -53,6 +63,8 @@ const recording = createRecordingController({
   onState: state => ipcRenderer.send("recording:state", state),
   onError: message => ipcRenderer.send("recording:error", message),
 });
+
+void recording.restore();
 
 // Always listen, including before React mounts and while a different tab is open.
 ipcRenderer.on("recording:toggle", (_, source) => {

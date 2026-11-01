@@ -162,3 +162,7 @@ npm run build:web
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+## Recording recovery
+
+Szeptucha keeps a local recovery copy while recording and before transcription. After an unexpected close, the next launch offers the last saved audio for transcription, export, or discard; it does not send recovered audio to an API automatically. The copy is removed after successful completion or confirmed discard. If a disk error prevents backup, a warning asks you to export the audio before closing. A crash may lose the last fragment that had not yet been saved.

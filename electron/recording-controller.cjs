@@ -1,7 +1,7 @@
 // One lifecycle for the button, global shortcut and tray. The preload owns it,
 // so hiding the window or switching React tabs cannot interrupt a recording.
-function createRecordingController({ getUserMedia, createMediaRecorder, transcribe, complete, onState, onError, now = Date.now, transcriptionTimeoutMs = 180_000 }) {
-  let state = { phase: "idle", source: "interface", startedAt: null, durationMs: 0, downloadProgress: null, audioLevel: 0, error: null, canRetry: false };
+function createRecordingController({ getUserMedia, createMediaRecorder, transcribe, complete, onState, onError, now = Date.now, transcriptionTimeoutMs = 180_000, drafts }) {
+  let state = { phase: "idle", source: "interface", startedAt: null, durationMs: 0, downloadProgress: null, audioLevel: 0, error: null, canRetry: false, draftSaved: false, draftWarning: false, recoveryFailed: false };
   let session = null;
   let pending = null;
   const listeners = new Set();
@@ -69,6 +69,10 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
     if (session !== active) return;
     releaseCapture(active);
     session = null;
+    if (!active.blob && active.chunks?.length) {
+      active.blob = new Blob(active.chunks, { type: active.recorder?.mimeType || "audio/webm" });
+      active.chunks = [];
+    }
     if (active.blob?.size) pending = active;
     const message = error instanceof Error ? error.message : String(error);
     publish({ phase: "error", downloadProgress: null, audioLevel: 0, error: message, canRetry: Boolean(pending),
@@ -76,32 +80,73 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
     onError(message);
   }
 
+  const draftMetadata = active => ({ mime: active.blob?.type || active.recorder?.mimeType || "audio/webm", startedAt: active.startedAt || now(), durationMs: Math.max(0, now() - (active.startedAt || now())) });
+
+  async function restore() {
+    if (!drafts || session || pending) return;
+    const active = {};
+    session = active;
+    publish({ phase: "recovering", recoveryFailed: false });
+    try {
+      const saved = await drafts.load();
+      session = null;
+      if (!saved) { publish({ phase: "idle", error: null }); return; }
+      pending = { blob: saved.blob, draftId: saved.id, durable: true, startedAt: saved.startedAt, hasResult: Boolean(saved.result), result: saved.result };
+      publish({ phase: "error", source: "interface", error: "RECORDING_RECOVERED", canRetry: true, draftSaved: true, draftWarning: false, startedAt: saved.startedAt, durationMs: saved.durationMs });
+    } catch {
+      session = null;
+      publish({ phase: "error", error: "DRAFT_LOAD_FAILED", recoveryFailed: true });
+    }
+  }
+
   async function start(source) {
     if (pending || !["idle", "completed", "error"].includes(state.phase)) return;
-    const active = { stream: null, recorder: null, chunks: [], rejectStop: null,
+    const active = { stream: null, recorder: null, chunks: [], rejectStop: null, persistQueue: Promise.resolve(),
       levelContext: null, levelAnalyser: null, levelSource: null, levelTimer: null };
     session = active;
-    publish({ phase: "starting", source, startedAt: null, durationMs: 0, downloadProgress: null, audioLevel: 0, error: null });
+    publish({ phase: "starting", source, startedAt: null, durationMs: 0, downloadProgress: null, audioLevel: 0, error: null, draftSaved: false, draftWarning: false });
     try {
       active.stream = await getUserMedia();
       startLevelMonitor(active);
       active.recorder = createMediaRecorder(active.stream);
       active.recorder.ondataavailable = event => {
-        if (event.data.size) active.chunks.push(event.data);
+        if (!event.data.size) return;
+        active.chunks.push(event.data);
+        if (drafts) active.persistQueue = active.persistQueue.then(async () => {
+          if (active.persistenceFailed) return;
+          active.draftId = await drafts.append(active.draftId, event.data, draftMetadata(active));
+          if (session === active) publish({ draftSaved: true });
+        }).catch(() => {
+          active.persistenceFailed = true;
+          if (session === active) publish({ draftSaved: false, draftWarning: true });
+        });
       };
       active.recorder.onerror = event => {
         const error = event.error || new Error("MediaRecorder error");
         active.rejectStop?.(error);
         fail(active, error);
       };
-      active.recorder.start();
-      publish({ phase: "recording", startedAt: now() });
+      active.startedAt = now();
+      active.recorder.start(1000);
+      publish({ phase: "recording", startedAt: active.startedAt });
     } catch (error) {
       fail(active, error);
     }
   }
 
   async function processRecording(active) {
+    if (drafts && !active.durable) {
+      publish({ phase: "saving-recording" });
+      try {
+        await active.persistQueue;
+        active.draftId = await drafts.save(active.draftId, active.blob, { ...draftMetadata(active), durationMs: state.durationMs });
+        active.durable = true;
+        publish({ phase: "transcribing", draftSaved: true, draftWarning: false });
+      } catch {
+        fail(active, new Error("DRAFT_SAVE_FAILED"));
+        return;
+      }
+    }
     const attempt = new AbortController();
     active.attempt = attempt;
     const timeout = setTimeout(() => attempt.abort(new Error("TRANSCRIPTION_TIMEOUT")), transcriptionTimeoutMs);
@@ -111,6 +156,7 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
       attempt.signal.addEventListener("abort", onAbort, { once: true });
     });
     try {
+      attempt.signal.throwIfAborted();
       if (!active.hasResult) {
         const result = await Promise.race([transcribe(active.blob, patch => {
           if (session === active && active.attempt === attempt && !attempt.signal.aborted) publish(patch);
@@ -121,12 +167,20 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
       }
       attempt.signal.throwIfAborted();
       clearTimeout(timeout);
+      if (drafts) {
+        try { await drafts.saveResult(active.draftId, active.result); }
+        catch { throw new Error("DRAFT_SAVE_FAILED"); }
+      }
       await complete(active.result);
+      if (drafts) {
+        try { await drafts.clear(active.draftId); }
+        catch { throw new Error("DRAFT_DELETE_FAILED"); }
+      }
       if (session === active) {
         pending = null;
         session = null;
         active.blob = null;
-        publish({ phase: "completed", downloadProgress: null, audioLevel: 0, error: null, canRetry: false });
+        publish({ phase: "completed", downloadProgress: null, audioLevel: 0, error: null, canRetry: false, draftSaved: false });
       }
       return active.result;
     } catch (error) {
@@ -171,18 +225,30 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
   return {
     getState: snapshot,
     retry,
+    restore,
     cancel() {
       if (!session?.blob || !session.attempt || session.hasResult) return false;
       session.attempt.abort(new Error("TRANSCRIPTION_CANCELLED"));
       return true;
     },
     getRetainedAudio() { return pending?.blob || null; },
-    discard() {
+    async discard() {
       if (session || !pending) return false;
-      pending.blob = null;
-      pending = null;
-      publish({ phase: "idle", error: null, canRetry: false });
-      return true;
+      const active = pending;
+      session = active;
+      publish({ phase: "recovering" });
+      try {
+        await active.persistQueue;
+        if (drafts && active.draftId) await drafts.clear(active.draftId);
+        pending.blob = null;
+        pending = null;
+        session = null;
+        publish({ phase: "idle", error: null, canRetry: false, draftSaved: false, draftWarning: false, startedAt: null, durationMs: 0 });
+        return true;
+      } catch {
+        fail(active, new Error("DRAFT_DELETE_FAILED"));
+        return false;
+      }
     },
     subscribe(listener) {
       listeners.add(listener);
@@ -190,6 +256,7 @@ function createRecordingController({ getUserMedia, createMediaRecorder, transcri
       return () => listeners.delete(listener);
     },
     toggle(source = "interface") {
+      if (state.recoveryFailed) return restore();
       if (state.phase === "recording") return stop();
       if (pending) return retry();
       return start(source);

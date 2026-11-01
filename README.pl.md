@@ -162,3 +162,7 @@ npm run build:web
 ## Licencja
 
 Ten projekt jest udostępniany na licencji MIT. Szczegółowe warunki znajdują się w pliku [LICENSE](LICENSE).
+
+## Odzyskiwanie nagrań
+
+Szeptucha zapisuje lokalną kopię roboczą w trakcie nagrywania i przed transkrypcją. Po nieoczekiwanym zamknięciu aplikacja przy następnym uruchomieniu proponuje przepisanie, eksport lub odrzucenie ostatnio zapisanego audio. Nie wysyła odzyskanego nagrania automatycznie do API. Kopia jest usuwana po zakończeniu operacji lub potwierdzonym odrzuceniu. Błąd dysku wyświetla ostrzeżenie, by wyeksportować audio przed zamknięciem. Awaria może spowodować utratę ostatniego, jeszcze niezapisanego fragmentu.
