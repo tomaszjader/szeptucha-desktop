@@ -86,10 +86,15 @@ function createRecordingDrafts({ directory }) {
       if (size > MAX_AUDIO_BYTES) throw new Error("Recording draft is too large");
       const nextMeta = metadata(id, size, meta);
       await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-      const handle = await fs.open(audioPath(id), "a+", 0o600);
+      const handle = await fs.open(audioPath(id), old ? "r+" : "w+", 0o600);
       try {
         await handle.truncate(old?.size || 0);
-        await handle.writeFile(chunk);
+        let written = 0;
+        while (written < chunk.length) {
+          const { bytesWritten } = await handle.write(chunk, written, chunk.length - written, (old?.size || 0) + written);
+          if (!bytesWritten) throw new Error("Incomplete draft write");
+          written += bytesWritten;
+        }
         await handle.sync();
         await atomic(manifestPath, JSON.stringify(nextMeta));
         return id;
