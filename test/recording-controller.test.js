@@ -147,7 +147,7 @@ test("repeated retry clicks cannot run concurrent transcriptions or discard acti
   await harness.controller.retry();
   await harness.controller.toggle();
   assert.equal(attempts, 2);
-  assert.equal(harness.controller.discard(), false);
+  assert.equal(await harness.controller.discard(), false);
   resolveRetry("text");
   await retry;
   assert.equal(harness.controller.getState().phase, "completed");
@@ -172,7 +172,7 @@ test("discard frees retained audio and permits a new recording", async () => {
   const harness = makeHarness({ transcribe: async () => { throw new Error("offline"); } });
   await harness.controller.toggle();
   await harness.controller.toggle();
-  assert.equal(harness.controller.discard(), true);
+  assert.equal(await harness.controller.discard(), true);
   assert.equal(harness.controller.getRetainedAudio(), null);
   assert.equal(harness.controller.getState().canRetry, false);
   await harness.controller.retry();
@@ -226,5 +226,5 @@ test("timeout unblocks transcription and retains the audio even if the worker ne
   assert.equal(harness.controller.getState().error, "TRANSCRIPTION_TIMEOUT");
   assert.equal(await harness.controller.getRetainedAudio().text(), "recorded audio");
   assert.equal(harness.controller.cancel(), false);
-  harness.controller.discard();
+  await harness.controller.discard();
 });

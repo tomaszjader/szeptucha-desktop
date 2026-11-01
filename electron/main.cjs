@@ -25,6 +25,13 @@ let win,
   pasteTranscription = false;
 let registeredHotkeys = [];
 let activeNotesRequest = null;
+// A second app instance must not replace or clean up the active recording draft.
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
+app.on("second-instance", () => {
+  win?.show();
+  win?.focus();
+});
 const configPath = () => path.join(app.getPath("userData"), "settings.json");
 const { mainTranslations } = require("./translations.cjs");
 const {
@@ -34,6 +41,12 @@ const {
 } = require("./settings.cjs");
 const { correctTextWithApi, transcribeAudioWithApi } = require("./ai-api.cjs");
 const { createUpdater } = require("./updater.cjs");
+const { createRecordingDrafts } = require("./recording-drafts.cjs");
+let recordingDrafts;
+function draftsStore() {
+  if (!recordingDrafts) recordingDrafts = createRecordingDrafts({ directory: path.join(app.getPath("userData"), "recording-draft") });
+  return recordingDrafts;
+}
 const { createWhisperProcess } = require("./whisper-process.cjs");
 let whisperProcess;
 function localWhisper() {
@@ -125,6 +138,10 @@ function saveTranscription(text, s) {
 function recordingErrorMessage(error, t) {
   const raw = error instanceof Error ? error.message : String(error || "");
   const normalized = raw.toLowerCase();
+  if (normalized.includes("recording_recovered")) return t.recordingRecovered;
+  if (normalized.includes("draft_load_failed")) return t.draftLoadFailed;
+  if (normalized.includes("draft_save_failed")) return t.draftSaveFailed;
+  if (normalized.includes("draft_delete_failed")) return t.draftDeleteFailed;
   if (normalized.includes("transcription_cancelled")) return t.transcriptionCancelled;
   if (normalized.includes("transcription_timeout")) return t.transcriptionTimeout;
   if (/(notallowed|permissiondenied|permission denied|access denied|permission)/.test(normalized)) {
@@ -604,6 +621,7 @@ async function deleteNote(fileName) {
 }
 
 app.whenReady().then(async () => {
+  if (!hasSingleInstanceLock) return;
   createWindow();
   createRecordingIndicator();
   const updater = createUpdater({
@@ -663,6 +681,11 @@ ipcMain.handle("recording:save-audio", async (_, data, mime) => {
   await fs.promises.writeFile(result.filePath, buffer);
   return true;
 });
+ipcMain.handle("recording:draft-load", () => draftsStore().load());
+ipcMain.handle("recording:draft-append", (_, id, audio, meta) => draftsStore().append(id, audio, meta));
+ipcMain.handle("recording:draft-save", (_, id, audio, meta) => draftsStore().save(id, audio, meta));
+ipcMain.handle("recording:draft-result", (_, id, result) => draftsStore().saveResult(id, result));
+ipcMain.handle("recording:draft-clear", (_, id) => draftsStore().clear(id));
 const transcriptionRequests = new Map();
 async function withTranscriptionRequest(event, requestId, operation) {
   if (typeof requestId !== "string" || requestId.length > 100) throw new Error("Invalid transcription request");
@@ -722,7 +745,7 @@ ipcMain.on("recording:state", (_, state) => {
   const wasBusy = recordingBusy;
   const phase = nextState.phase;
   recording = phase === "recording";
-  recordingBusy = ["starting", "recording", "transcribing", "loading-model"].includes(phase);
+  recordingBusy = ["saving-recording", "recovering", "starting", "recording", "transcribing", "loading-model"].includes(phase);
   if (phase === "starting") pasteTranscription = nextState.source === "shortcut";
   if (phase === "completed" || phase === "error") pasteTranscription = false;
   if (wasRecording !== recording) showRecordingIndicator(recording);

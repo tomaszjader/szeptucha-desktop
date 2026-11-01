@@ -162,3 +162,7 @@ npm run build:web
 ## Lizenz
 
 Dieses Projekt ist unter der MIT-Lizenz lizenziert. Weitere Informationen finden Sie in der Datei [LICENSE](LICENSE).
+
+## Aufnahmen wiederherstellen
+
+Szeptucha speichert während der Aufnahme und vor der Transkription eine lokale Sicherung. Nach einem unerwarteten Schließen kann das zuletzt gespeicherte Audio beim nächsten Start transkribiert, exportiert oder verworfen werden. Wiederhergestelltes Audio wird nicht automatisch an eine API gesendet. Nach erfolgreichem Abschluss oder bestätigtem Verwerfen wird die Sicherung gelöscht. Bei einem Datenträgerfehler fordert eine Warnung zum Audioexport vor dem Schließen auf. Der letzte noch nicht gespeicherte Abschnitt kann bei einem Absturz verloren gehen.

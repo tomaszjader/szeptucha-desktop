@@ -1,5 +1,13 @@
 const mainTranslations = {
   pl: {
+    preparingRecording: "Przygotowuję nagranie…",
+    draftSaved: "Kopia nagrania jest zapisana lokalnie. Zostanie usunięta po zakończeniu lub odrzuceniu nagrania.",
+    recordingRecovered: "Odnaleziono nagranie z poprzedniej sesji. Możesz je przepisać, zapisać jako audio albo odrzucić.",
+    draftLoadFailed: "Nie udało się odczytać kopii nagrania. Spróbuj ponownie; kopia nie została nadpisana.",
+    draftSaveFailed: "Nie udało się zapisać kopii nagrania. Audio pozostaje w pamięci — zapisz je do pliku lub ponów próbę.",
+    draftDeleteFailed: "Nie udało się usunąć kopii nagrania. Spróbuj ponownie.",
+    draftWarning: "Nie udało się zaktualizować kopii nagrania na dysku. Nie zamykaj aplikacji przed zapisaniem audio.",
+
     cancelTranscription: "Anuluj transkrypcję",
     transcriptionCancelled: "Transkrypcja anulowana. Nagranie jest dostępne do ponowienia lub zapisania.",
     transcriptionTimeout: "Przekroczono czas oczekiwania. Nagranie jest dostępne do ponowienia lub zapisania.",
@@ -43,6 +51,14 @@ const mainTranslations = {
     trayExit: "Zakończ",
   },
   en: {
+    preparingRecording: "Preparing recording…",
+    draftSaved: "A local recording backup is saved. It will be removed after completion or discard.",
+    recordingRecovered: "A recording from the previous session was found. Retry transcription, save the audio, or discard it.",
+    draftLoadFailed: "Could not read the recording backup. Try again; the backup has not been overwritten.",
+    draftSaveFailed: "Could not save the recording backup. Audio is still in memory — export it or try again.",
+    draftDeleteFailed: "Could not remove the recording backup. Please try again.",
+    draftWarning: "Could not update the recording backup on disk. Save the audio before closing the app.",
+
     cancelTranscription: "Cancel transcription",
     transcriptionCancelled: "Transcription cancelled. The recording is available to retry or save.",
     transcriptionTimeout: "The request timed out. The recording is available to retry or save.",
@@ -86,6 +102,14 @@ const mainTranslations = {
     trayExit: "Exit",
   },
   de: {
+    preparingRecording: "Aufnahme wird vorbereitet…",
+    draftSaved: "Eine lokale Sicherung ist gespeichert. Sie wird nach Abschluss oder Verwerfen entfernt.",
+    recordingRecovered: "Eine Aufnahme aus der letzten Sitzung wurde gefunden. Erneut transkribieren, Audio speichern oder verwerfen.",
+    draftLoadFailed: "Die Sicherung konnte nicht gelesen werden. Erneut versuchen; sie wurde nicht überschrieben.",
+    draftSaveFailed: "Die Sicherung konnte nicht gespeichert werden. Das Audio ist noch im Speicher — exportieren oder erneut versuchen.",
+    draftDeleteFailed: "Die Sicherung konnte nicht entfernt werden. Erneut versuchen.",
+    draftWarning: "Die Sicherung auf dem Datenträger konnte nicht aktualisiert werden. Speichere das Audio vor dem Schließen.",
+
     cancelTranscription: "Transkription abbrechen",
     transcriptionCancelled: "Transkription abgebrochen. Die Aufnahme kann erneut verarbeitet oder gespeichert werden.",
     transcriptionTimeout: "Zeitlimit überschritten. Die Aufnahme kann erneut verarbeitet oder gespeichert werden.",
@@ -129,6 +153,14 @@ const mainTranslations = {
     trayExit: "Beenden",
   },
   ru: {
+    preparingRecording: "Подготовка записи…",
+    draftSaved: "Локальная копия сохранена. Она будет удалена после завершения или отказа от записи.",
+    recordingRecovered: "Найдена запись из предыдущего сеанса. Повторите расшифровку, сохраните аудио или удалите запись.",
+    draftLoadFailed: "Не удалось прочитать копию записи. Повторите попытку; копия не была перезаписана.",
+    draftSaveFailed: "Не удалось сохранить копию. Аудио осталось в памяти — экспортируйте его или повторите попытку.",
+    draftDeleteFailed: "Не удалось удалить копию записи. Повторите попытку.",
+    draftWarning: "Не удалось обновить копию на диске. Сохраните аудио перед закрытием приложения.",
+
     cancelTranscription: "Отменить расшифровку",
     transcriptionCancelled: "Расшифровка отменена. Запись можно обработать повторно или сохранить.",
     transcriptionTimeout: "Время ожидания истекло. Запись можно обработать повторно или сохранить.",

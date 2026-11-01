@@ -5,6 +5,10 @@ import { translations, type AppLanguage } from "../translations";
 function friendlyRecordingError(error: string | null, t: (typeof translations)[AppLanguage]) {
   const raw = error || "";
   const normalized = raw.toLowerCase();
+  if (normalized.includes("recording_recovered")) return t.recordingRecovered;
+  if (normalized.includes("draft_load_failed")) return t.draftLoadFailed;
+  if (normalized.includes("draft_save_failed")) return t.draftSaveFailed;
+  if (normalized.includes("draft_delete_failed")) return t.draftDeleteFailed;
   if (normalized.includes("transcription_cancelled")) return t.transcriptionCancelled;
   if (normalized.includes("transcription_timeout")) return t.transcriptionTimeout;
   if (/(notallowed|permissiondenied|permission denied|access denied|permission)/.test(normalized)) {
@@ -59,9 +63,9 @@ export const Recorder: React.FC<RecorderProps> = ({
     finally { setSavingAudio(false); }
   };
   const audioLevel = recording ? recordingState.audioLevel : 0;
-  const busy = ["starting", "transcribing", "loading-model"].includes(recordingState.phase);
+  const busy = ["recovering", "saving-recording", "starting", "transcribing", "loading-model"].includes(recordingState.phase);
   const friendlyError = friendlyRecordingError(recordingState.error, t);
-  const statusText = recordingState.phase === "starting"
+  const statusText = ["recovering", "saving-recording"].includes(recordingState.phase) ? t.preparingRecording : recordingState.phase === "starting"
     ? t.startingRecording
     : recordingState.phase === "loading-model"
       ? t.loadingWhisper
@@ -130,12 +134,14 @@ export const Recorder: React.FC<RecorderProps> = ({
         {["transcribing", "loading-model"].includes(recordingState.phase) && (
           <button className="secondary" onClick={() => window.szeptucha.cancelTranscription()}>{t.cancelTranscription}</button>
         )}
+        {recordingState.draftWarning && <p role="alert">{t.draftWarning}</p>}
+        {recordingState.recoveryFailed && <button className="secondary" onClick={onToggleRecording}>{t.retry}</button>}
         {recordingState.canRetry && (
           <div className="recording-recovery" role="group" aria-label={t.retainedRecording}>
-            <p>{t.retainedRecording}</p>
+            <p>{recordingState.draftSaved ? t.draftSaved : t.retainedRecording}</p>
             <button className="secondary" disabled={busy || savingAudio} onClick={() => void window.szeptucha.retryTranscription()}>{t.retryTranscription}</button>
             <button className="secondary" disabled={busy || savingAudio} onClick={() => void saveAudio()}>{t.saveAudio}</button>
-            <button className="secondary" disabled={busy || savingAudio} onClick={() => { if (window.confirm(t.discardRecordingConfirm)) window.szeptucha.discardRecording(); }}>{t.discardRecording}</button>
+            <button className="secondary" disabled={busy || savingAudio} onClick={() => { if (window.confirm(t.discardRecordingConfirm)) void window.szeptucha.discardRecording(); }}>{t.discardRecording}</button>
             {audioSaveError && <p role="alert">{t.audioSaveFailed}</p>}
           </div>
         )}

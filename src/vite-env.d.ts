@@ -27,7 +27,7 @@ interface Window {
     toggleRecording(): Promise<{ text: string; path: string } | undefined>;
     correctSelection(): Promise<{ ok: boolean; message: string }>;
     retryTranscription(): Promise<{ text: string; path: string } | undefined>;
-    discardRecording(): boolean;
+    discardRecording(): Promise<boolean>;
     cancelTranscription(): boolean;
     saveRecording(): Promise<boolean>;
     getRecordingState(): RecordingStatus;
@@ -41,7 +41,7 @@ interface Window {
 }
 
 type RecordingStatus = {
-  phase: 'idle' | 'starting' | 'recording' | 'transcribing' | 'loading-model' | 'completed' | 'error';
+  phase: 'saving-recording' | 'recovering' | 'idle' | 'starting' | 'recording' | 'transcribing' | 'loading-model' | 'completed' | 'error';
   source: 'interface' | 'shortcut' | 'tray';
   startedAt: number | null;
   durationMs: number;
@@ -49,6 +49,9 @@ type RecordingStatus = {
   audioLevel: number;
   error: string | null;
   canRetry: boolean;
+  draftSaved: boolean;
+  draftWarning: boolean;
+  recoveryFailed: boolean;
 };
 
 interface Settings {
