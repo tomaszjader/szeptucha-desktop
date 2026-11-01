@@ -203,3 +203,11 @@ test("capture failure retains partial audio and discard waits for pending writes
   assert.equal(await h.recording.discard(), true);
   assert.equal(await store.load(), null);
 });
+
+test("valid long Unicode transcriptions remain recoverable in the metadata", async t => {
+  const { store } = await fixture(t);
+  const id = await store.save(null, Buffer.from("audio"), meta);
+  const text = "文".repeat(750_000);
+  await store.saveResult(id, { text, path: "note.md" });
+  assert.equal((await store.load()).result.text, text);
+});

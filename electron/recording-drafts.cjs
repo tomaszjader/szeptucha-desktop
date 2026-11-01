@@ -16,12 +16,12 @@ function createRecordingDrafts({ directory }) {
   async function manifest() {
     try {
       const stat = await fs.lstat(manifestPath);
-      if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 2 * 1024 * 1024) throw new Error("Invalid draft metadata");
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 8 * 1024 * 1024) throw new Error("Invalid draft metadata");
       const data = JSON.parse(await fs.readFile(manifestPath, "utf8"));
       if (data.version !== 1 || !ID.test(data.id) || !Number.isSafeInteger(data.size) || data.size <= 0 || data.size > MAX_AUDIO_BYTES ||
           typeof data.mime !== "string" || !/^audio\/[\w.+-]+(?:;[^\r\n]*)?$/.test(data.mime) || data.mime.length > 200 ||
           !Number.isFinite(data.durationMs) || data.durationMs < 0 || !Number.isFinite(data.startedAt)) throw new Error("Invalid draft metadata");
-      if (data.result && (typeof data.result.text !== "string" || data.result.text.length > 1_000_000 || typeof data.result.path !== "string")) throw new Error("Invalid draft result");
+      if (data.result && (typeof data.result.text !== "string" || data.result.text.length > 1_000_000 || typeof data.result.path !== "string" || data.result.path.length > 4096)) throw new Error("Invalid draft result");
       return data;
     } catch (error) { if (error.code === "ENOENT") return null; throw error; }
   }
@@ -115,7 +115,7 @@ function createRecordingDrafts({ directory }) {
     }),
     saveResult: (id, result) => serialize(async () => {
       const old = await currentFor(id);
-      if (!old || typeof result?.text !== "string" || result.text.length > 1_000_000 || typeof result.path !== "string") throw new Error("Invalid draft result");
+      if (!old || typeof result?.text !== "string" || result.text.length > 1_000_000 || typeof result.path !== "string" || result.path.length > 4096) throw new Error("Invalid draft result");
       await atomic(manifestPath, JSON.stringify({ ...old, result: { text: result.text, path: result.path } }));
     }),
     clear: id => serialize(async () => {
