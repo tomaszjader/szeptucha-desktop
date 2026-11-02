@@ -41,6 +41,7 @@ const {
 } = require("./settings.cjs");
 const { correctTextWithApi, transcribeAudioWithApi } = require("./ai-api.cjs");
 const { createUpdater } = require("./updater.cjs");
+const { createCorrectionController } = require("./correction-controller.cjs");
 const { createRecordingDrafts } = require("./recording-drafts.cjs");
 let recordingDrafts;
 function draftsStore() {
@@ -352,42 +353,38 @@ function trayMenu() {
     ]),
   );
 }
-async function aiCorrect(text, s) {
-  return correctTextWithApi({ text, settings: s, lang: getLang(s) });
-}
-function keys(action) {
+function keys(action, signal) {
+  if (signal?.aborted) return Promise.reject(signal.reason);
+  let command, args;
+  if (process.platform === "win32") {
+    const sequence = action === "copy" ? "^c" : "^v";
+    command = "powershell";
+    args = ["-NoProfile", "-STA", "-Command", `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${sequence}')`];
+  } else if (process.platform === "darwin") {
+    command = "osascript";
+    args = ["-e", `tell application "System Events" to keystroke "${action === "copy" ? "c" : "v"}" using {command down}`];
+  } else {
+    command = "xdotool";
+    args = ["key", action === "copy" ? "ctrl+c" : "ctrl+v"];
+  }
   return new Promise((resolve, reject) => {
-    if (process.platform === "win32") {
-      const seq = action === "copy" ? "^c" : "^v";
-      const p = spawn(
-        "powershell",
-        [
-          "-NoProfile",
-          "-STA",
-          "-Command",
-          `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${seq}')`,
-        ],
-        { windowsHide: true },
-      );
-      p.on("exit", (c) =>
-        c ? reject(new Error("Nie udało się wysłać skrótu")) : resolve(),
-      );
-    } else if (process.platform === "darwin") {
-      const keyChar = action === "copy" ? "c" : "v";
-      const script = `tell application "System Events" to keystroke "${keyChar}" using {command down}`;
-      const p = spawn("osascript", ["-e", script]);
-      p.on("exit", (c) =>
-        c ? reject(new Error("Failed to send shortcut")) : resolve(),
-      );
-    } else {
-      const keySeq = action === "copy" ? "ctrl+c" : "ctrl+v";
-      const p = spawn("xdotool", ["key", keySeq]);
-      p.on("exit", (c) =>
-        c ? reject(new Error("Failed to send shortcut - make sure xdotool is installed")) : resolve(),
-      );
-    }
+    const child = spawn(command, args, { windowsHide: true, signal });
+    child.once("error", error => reject(signal?.aborted ? signal.reason : error));
+    child.once("exit", code => {
+      if (signal?.aborted) reject(signal.reason);
+      else if (code !== 0) reject(new Error("Failed to send shortcut"));
+      else resolve();
+    });
   });
 }
+const correction = createCorrectionController({
+  clipboard,
+  keys,
+  correct: options => correctTextWithApi(options),
+  onState: state => {
+    if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send("correction:state", state);
+  },
+});
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function correctText() {
   const s = settings();
@@ -409,34 +406,21 @@ async function correctText() {
     return { ok: false, message: t.statusNoApiKey };
   }
 
-  const prevClipboard = clipboard.readText();
-  try {
-    clipboard.clear();
-    await keys("copy");
-
-    let text = "";
-    for (let i = 0; i < 10; i++) {
-      await wait(50);
-      text = clipboard.readText();
-      if (text && text.trim()) break;
-    }
-
-    if (!text || !text.trim()) {
-      if (prevClipboard) clipboard.writeText(prevClipboard);
-      throw new Error(t.statusSelectText || (lang === "pl" ? "Zaznacz tekst przed użyciem skrótu" : "Select text before using shortcut"));
-    }
-
-    status("info", t.statusCorrecting);
-    const corrected = await aiCorrect(text, s);
-    clipboard.writeText(corrected.trim());
-    await keys("paste");
-    status("success", t.statusCorrected);
-    return { ok: true, message: "Gotowe" };
-  } catch (e) {
-    status("error", e.message);
-    return { ok: false, message: e.message };
-  }
+  const result = await correction.run({ settings: s, lang });
+  const messages = {
+    CORRECTION_TIMEOUT: t.correctionTimedOut,
+    CORRECTION_CANCELLED: t.correctionCancelled,
+    CORRECTION_BUSY: t.correctionBusy,
+    CORRECTION_NO_SELECTION: t.statusSelectText,
+    CORRECTION_CLIPBOARD_CHANGED: t.correctionClipboardChanged,
+    CORRECTION_EMPTY_RESPONSE: t.correctionEmptyResponse,
+    CORRECTION_PASTE_FAILED: t.correctionPasteFailed,
+  };
+  const message = result.ok ? t.statusCorrected : messages[result.code] || result.code;
+  status(result.ok ? "success" : result.code === "CORRECTION_BUSY" || result.code === "CORRECTION_CANCELLED" ? "info" : "error", message);
+  return { ok: result.ok, message };
 }
+
 async function transcribe(buf, mime, signal) {
   const isAudioBuffer =
     buf instanceof ArrayBuffer || ArrayBuffer.isView(buf);
@@ -635,7 +619,7 @@ app.whenReady().then(async () => {
   shortcuts();
 });
 app.on("window-all-closed", () => {});
-app.on("before-quit", () => { app.isQuiting = true; whisperProcess?.dispose(); });
+app.on("before-quit", () => { app.isQuiting = true; whisperProcess?.dispose(); correction.dispose(); });
 app.on("will-quit", () => globalShortcut.unregisterAll());
 ipcMain.on("ocr:show", (event) => { if (event.sender === win?.webContents) ocr.show(); });
 ipcMain.on("theme:set", (_, theme) => {
@@ -726,6 +710,8 @@ ipcMain.handle("transcription:save", (_, text) => {
   return saveTranscription(text, s);
 });
 ipcMain.handle("text:correct", () => correctText());
+ipcMain.handle("text:correction-state", () => correction.getState());
+ipcMain.handle("text:cancel-correction", event => event.sender === win?.webContents && correction.cancel());
 ipcMain.handle("notes:get", async (_, options) => {
   activeNotesRequest?.abort();
   const request = new AbortController();

@@ -1,5 +1,14 @@
 const mainTranslations = {
   pl: {
+    correctionPasteFailed: "Nie udało się potwierdzić wklejenia. Sprawdź wynik w aplikacji docelowej.",
+    correctingText: "Poprawiam tekst…",
+    cancelCorrection: "Anuluj korektę",
+    correctionTimedOut: "Przekroczono czas oczekiwania na korektę. Tekst nie został wklejony.",
+    correctionCancelled: "Korekta została anulowana. Tekst nie został wklejony.",
+    correctionBusy: "Korekta tekstu już trwa.",
+    correctionClipboardChanged: "Zawartość schowka zmieniła się podczas korekty. Wynik nie został wklejony.",
+    correctionEmptyResponse: "Usługa nie zwróciła poprawionego tekstu.",
+
     preparingRecording: "Przygotowuję nagranie…",
     draftSaved: "Kopia nagrania jest zapisana lokalnie. Zostanie usunięta po zakończeniu lub odrzuceniu nagrania.",
     recordingRecovered: "Odnaleziono nagranie z poprzedniej sesji. Możesz je przepisać, zapisać jako audio albo odrzucić.",
@@ -51,6 +60,15 @@ const mainTranslations = {
     trayExit: "Zakończ",
   },
   en: {
+    correctionPasteFailed: "Could not confirm the paste. Check the result in the target application.",
+    correctingText: "Correcting text…",
+    cancelCorrection: "Cancel correction",
+    correctionTimedOut: "Text correction timed out. No text was pasted.",
+    correctionCancelled: "Text correction was cancelled. No text was pasted.",
+    correctionBusy: "Text correction is already running.",
+    correctionClipboardChanged: "The clipboard changed during correction. The result was not pasted.",
+    correctionEmptyResponse: "The service returned no corrected text.",
+
     preparingRecording: "Preparing recording…",
     draftSaved: "A local recording backup is saved. It will be removed after completion or discard.",
     recordingRecovered: "A recording from the previous session was found. Retry transcription, save the audio, or discard it.",
@@ -102,6 +120,15 @@ const mainTranslations = {
     trayExit: "Exit",
   },
   de: {
+    correctionPasteFailed: "Das Einfügen konnte nicht bestätigt werden. Prüfe das Ergebnis in der Zielanwendung.",
+    correctingText: "Text wird korrigiert…",
+    cancelCorrection: "Korrektur abbrechen",
+    correctionTimedOut: "Zeitlimit der Textkorrektur überschritten. Es wurde kein Text eingefügt.",
+    correctionCancelled: "Textkorrektur abgebrochen. Es wurde kein Text eingefügt.",
+    correctionBusy: "Eine Textkorrektur läuft bereits.",
+    correctionClipboardChanged: "Die Zwischenablage wurde während der Korrektur geändert. Das Ergebnis wurde nicht eingefügt.",
+    correctionEmptyResponse: "Der Dienst hat keinen korrigierten Text zurückgegeben.",
+
     preparingRecording: "Aufnahme wird vorbereitet…",
     draftSaved: "Eine lokale Sicherung ist gespeichert. Sie wird nach Abschluss oder Verwerfen entfernt.",
     recordingRecovered: "Eine Aufnahme aus der letzten Sitzung wurde gefunden. Erneut transkribieren, Audio speichern oder verwerfen.",
@@ -153,6 +180,15 @@ const mainTranslations = {
     trayExit: "Beenden",
   },
   ru: {
+    correctionPasteFailed: "Не удалось подтвердить вставку. Проверьте результат в целевом приложении.",
+    correctingText: "Исправление текста…",
+    cancelCorrection: "Отменить исправление",
+    correctionTimedOut: "Время ожидания исправления истекло. Текст не вставлен.",
+    correctionCancelled: "Исправление отменено. Текст не вставлен.",
+    correctionBusy: "Исправление текста уже выполняется.",
+    correctionClipboardChanged: "Содержимое буфера обмена изменилось. Результат не вставлен.",
+    correctionEmptyResponse: "Сервис не вернул исправленный текст.",
+
     preparingRecording: "Подготовка записи…",
     draftSaved: "Локальная копия сохранена. Она будет удалена после завершения или отказа от записи.",
     recordingRecovered: "Найдена запись из предыдущего сеанса. Повторите расшифровку, сохраните аудио или удалите запись.",

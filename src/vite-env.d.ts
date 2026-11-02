@@ -26,6 +26,9 @@ interface Window {
     chooseFolder(): Promise<string | null>;
     toggleRecording(): Promise<{ text: string; path: string } | undefined>;
     correctSelection(): Promise<{ ok: boolean; message: string }>;
+    cancelCorrection(): Promise<boolean>;
+    getCorrectionState(): Promise<CorrectionStatus>;
+    onCorrectionState(cb: (state: CorrectionStatus) => void): () => void;
     retryTranscription(): Promise<{ text: string; path: string } | undefined>;
     discardRecording(): Promise<boolean>;
     cancelTranscription(): boolean;
@@ -39,6 +42,12 @@ interface Window {
     deleteNote(fileName: string): Promise<boolean>;
   };
 }
+
+type CorrectionStatus = {
+  phase: 'idle' | 'selecting' | 'correcting' | 'pasting';
+  busy: boolean;
+  canCancel: boolean;
+};
 
 type RecordingStatus = {
   phase: 'saving-recording' | 'recovering' | 'idle' | 'starting' | 'recording' | 'transcribing' | 'loading-model' | 'completed' | 'error';
