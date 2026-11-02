@@ -160,3 +160,23 @@ test("an already cancelled request never calls fetch", async () => {
     fetchImpl: () => { assert.fail("fetch must not run"); },
   }), /TRANSCRIPTION_CANCELLED/);
 });
+
+test("text correction deadline covers a stalled response body", async () => {
+  let signal;
+  await assert.rejects(correctTextWithApi({
+    text: "text", settings: { provider: "openai", apiKey: "key" }, lang: "en", timeoutMs: 10,
+    fetchImpl: async (_, init) => { signal = init.signal; return { ok: true, text: () => new Promise(() => {}) }; },
+  }), /CORRECTION_TIMEOUT/);
+  assert.equal(signal.aborted, true);
+});
+
+test("cancelling text correction propagates to fetch", async () => {
+  const controller = new AbortController(); let signal;
+  const request = correctTextWithApi({
+    text: "text", settings: { provider: "gemini", apiKey: "key", model: "gemini-2.0-flash" }, lang: "en", signal: controller.signal,
+    fetchImpl: async (_, init) => { signal = init.signal; return new Promise(() => {}); },
+  });
+  controller.abort(new Error("CORRECTION_CANCELLED"));
+  await assert.rejects(request, /CORRECTION_CANCELLED/);
+  assert.equal(signal.aborted, true);
+});

@@ -30,6 +30,7 @@ function friendlyRecordingError(error: string | null, t: (typeof translations)[A
 }
 
 interface RecorderProps {
+  correctionState: CorrectionStatus;
   recording: boolean;
   recordingState: RecordingStatus;
   elapsedMs: number;
@@ -43,6 +44,7 @@ interface RecorderProps {
 
 export const Recorder: React.FC<RecorderProps> = ({
   recording,
+  correctionState,
   recordingState,
   elapsedMs,
   onToggleRecording,
@@ -208,9 +210,12 @@ export const Recorder: React.FC<RecorderProps> = ({
             <span>{t.globalShortcut}</span>
             <kbd>{(s.correctHotkey || "Ctrl+Q").replace("CommandOrControl", "Ctrl")}</kbd>
           </div>
-          <button className="secondary" onClick={onCorrectText}>
-            {t.correctSelectedText}
+          <button className="secondary" onClick={onCorrectText} disabled={correctionState.busy} aria-busy={correctionState.busy}>
+            {correctionState.busy ? t.correctingText : t.correctSelectedText}
           </button>
+          {correctionState.busy && (
+            <button className="secondary" disabled={!correctionState.canCancel} onClick={() => void window.szeptucha.cancelCorrection()}>{t.cancelCorrection}</button>
+          )}
         </article>
 
         <article>

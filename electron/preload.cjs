@@ -79,6 +79,13 @@ contextBridge.exposeInMainWorld("szeptucha", {
   chooseFolder: () => ipcRenderer.invoke("folder:choose"),
   openFolder: () => ipcRenderer.invoke("folder:open"),
   correctSelection: () => ipcRenderer.invoke("text:correct"),
+  cancelCorrection: () => ipcRenderer.invoke("text:cancel-correction"),
+  getCorrectionState: () => ipcRenderer.invoke("text:correction-state"),
+  onCorrectionState: cb => {
+    const listener = (_, state) => cb(state);
+    ipcRenderer.on("correction:state", listener);
+    return () => ipcRenderer.removeListener("correction:state", listener);
+  },
   toggleRecording: () => recording.toggle("interface"),
   retryTranscription: () => recording.retry(),
   cancelTranscription: () => recording.cancel(),

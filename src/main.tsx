@@ -36,6 +36,7 @@ function App() {
 
   const [s, setS] = useState<Settings>(defaults);
   const [recordingState, setRecordingState] = useState<RecordingStatus>(() => window.szeptucha.getRecordingState());
+  const [correctionState, setCorrectionState] = useState<CorrectionStatus>({ phase: "idle", busy: false, canCancel: false });
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [currentTab, setCurrentTab] = useState<"recording" | "history" | "settings">("recording");
   const [toastMessage, setToastMessage] = useState("");
@@ -87,6 +88,19 @@ function App() {
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
+
+  useEffect(() => {
+    let alive = true;
+    let updated = false;
+    const unsubscribe = window.szeptucha.onCorrectionState(state => {
+      updated = true;
+      if (alive) setCorrectionState(state);
+    });
+    void window.szeptucha.getCorrectionState().then(state => {
+      if (alive && !updated) setCorrectionState(state);
+    }).catch(() => {});
+    return () => { alive = false; unsubscribe(); };
+  }, []);
 
   const soundEnabled = useRef(s.soundEnabled ?? true);
   useEffect(() => {
@@ -207,6 +221,7 @@ function App() {
 
         {currentTab === "recording" && (
           <Recorder
+            correctionState={correctionState}
             recording={recording}
             recordingState={recordingState}
             elapsedMs={recording && recordingState.startedAt !== null

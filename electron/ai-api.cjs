@@ -193,19 +193,19 @@ module.exports = {
   readJsonResponse,
   apiErrorMessage,
   geminiText,
-  correctTextWithApi,
+  correctTextWithApi: withRequestDeadline(correctTextWithApi, { timeoutCode: "CORRECTION_TIMEOUT", cancelCode: "CORRECTION_CANCELLED" }),
   transcribeAudioWithApi: withRequestDeadline(transcribeAudioWithApi),
 };
 
 // Cover the complete request, including response-body reading, and propagate cancellation.
-function withRequestDeadline(operation) {
+function withRequestDeadline(operation, { timeoutCode = "TRANSCRIPTION_TIMEOUT", cancelCode = "TRANSCRIPTION_CANCELLED" } = {}) {
   return async (options) => {
     const controller = new AbortController();
     const parent = options.signal;
-    const abort = () => controller.abort(parent.reason || new Error("TRANSCRIPTION_CANCELLED"));
+    const abort = () => controller.abort(parent.reason || new Error(cancelCode));
     if (parent?.aborted) abort();
     else parent?.addEventListener("abort", abort, { once: true });
-    const timeout = setTimeout(() => controller.abort(new Error("TRANSCRIPTION_TIMEOUT")), options.timeoutMs ?? 120_000);
+    const timeout = setTimeout(() => controller.abort(new Error(timeoutCode)), options.timeoutMs ?? 120_000);
     let onAbort;
     const interrupted = new Promise((_, reject) => {
       onAbort = () => reject(controller.signal.reason);
