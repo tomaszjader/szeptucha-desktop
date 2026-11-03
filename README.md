@@ -166,3 +166,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 ## Recording recovery
 
 Szeptucha keeps a local recovery copy while recording and before transcription. After an unexpected close, the next launch offers the last saved audio for transcription, export, or discard; it does not send recovered audio to an API automatically. The copy is removed after successful completion or confirmed discard. If a disk error prevents backup, a warning asks you to export the audio before closing. A crash may lose the last fragment that had not yet been saved.
+
+## Dependency maintenance
+
+Dependabot checks npm packages and GitHub Actions weekly and opens update pull requests. Minor and patch updates are grouped; major updates stay separate for review. The Dependency security workflow audits the committed lockfile on pull requests, pushes to `main`, weekly, and on manual dispatch. High or critical findings fail the audit; other severities remain visible in the report. Review and merge updates after CI passes.

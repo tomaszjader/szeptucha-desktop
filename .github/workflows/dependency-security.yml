@@ -1,0 +1,32 @@
+name: Dependency security
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    name: Audit npm dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Use the committed lockfile without installing or running package scripts.
+      # Include build tools; moderate/low findings remain visible in the report.
+      - name: Audit dependencies for high and critical vulnerabilities
+        run: npm audit --package-lock-only --include=dev --include=optional --audit-level=high

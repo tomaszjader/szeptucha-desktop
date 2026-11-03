@@ -166,3 +166,7 @@ Ten projekt jest udostępniany na licencji MIT. Szczegółowe warunki znajdują 
 ## Odzyskiwanie nagrań
 
 Szeptucha zapisuje lokalną kopię roboczą w trakcie nagrywania i przed transkrypcją. Po nieoczekiwanym zamknięciu aplikacja przy następnym uruchomieniu proponuje przepisanie, eksport lub odrzucenie ostatnio zapisanego audio. Nie wysyła odzyskanego nagrania automatycznie do API. Kopia jest usuwana po zakończeniu operacji lub potwierdzonym odrzuceniu. Błąd dysku wyświetla ostrzeżenie, by wyeksportować audio przed zamknięciem. Awaria może spowodować utratę ostatniego, jeszcze niezapisanego fragmentu.
+
+## Utrzymanie zależności
+
+Dependabot co tydzień sprawdza paczki npm i GitHub Actions oraz tworzy PR-y z aktualizacjami. Wersje minor i patch są grupowane, a major pozostają osobno do przeglądu. Workflow Dependency security audytuje zapisany lockfile przy PR-ach, zmianach na `main`, co tydzień i na ręczne żądanie. Podatności wysokie i krytyczne kończą audyt błędem; pozostałe są widoczne w raporcie. Aktualizacje należy przejrzeć i scalić po przejściu CI.
