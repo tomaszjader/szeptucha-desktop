@@ -166,3 +166,7 @@ Dieses Projekt ist unter der MIT-Lizenz lizenziert. Weitere Informationen finden
 ## Aufnahmen wiederherstellen
 
 Szeptucha speichert während der Aufnahme und vor der Transkription eine lokale Sicherung. Nach einem unerwarteten Schließen kann das zuletzt gespeicherte Audio beim nächsten Start transkribiert, exportiert oder verworfen werden. Wiederhergestelltes Audio wird nicht automatisch an eine API gesendet. Nach erfolgreichem Abschluss oder bestätigtem Verwerfen wird die Sicherung gelöscht. Bei einem Datenträgerfehler fordert eine Warnung zum Audioexport vor dem Schließen auf. Der letzte noch nicht gespeicherte Abschnitt kann bei einem Absturz verloren gehen.
+
+## Abhängigkeiten pflegen
+
+Dependabot prüft npm-Pakete und GitHub Actions wöchentlich und erstellt Aktualisierungs-PRs. Minor- und Patch-Updates werden gruppiert; Major-Updates bleiben zur Prüfung getrennt. Der Workflow Dependency security prüft die gespeicherte Lockdatei bei Pull Requests, Änderungen an `main`, wöchentlich und bei manueller Auslösung. Hohe und kritische Schwachstellen lassen die Prüfung fehlschlagen; andere Schweregrade bleiben im Bericht sichtbar. Aktualisierungen nach erfolgreicher CI prüfen und zusammenführen.
