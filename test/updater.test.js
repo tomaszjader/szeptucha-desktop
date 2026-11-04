@@ -30,6 +30,7 @@ test("provides every update dialog message in all supported languages", () => {
     "updateInstallDetail",
     "updateInstallNow",
     "updateFailed",
+    "updateLaunchFailed",
   ];
 
   for (const [language, messages] of Object.entries(mainTranslations)) {

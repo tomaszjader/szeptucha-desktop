@@ -57,6 +57,7 @@ const mainTranslations = {
     updateInstallDetail: "Zapisz pracę. Aplikacja zamknie się i uruchomi instalator.",
     updateInstallNow: "Zainstaluj teraz",
     updateFailed: "Nie udało się pobrać lub zweryfikować aktualizacji.",
+    updateLaunchFailed: "Nie udało się uruchomić instalatora. Aplikacja pozostanie otwarta. Spróbuj ponownie.",
     trayExit: "Zakończ",
   },
   en: {
@@ -117,6 +118,7 @@ const mainTranslations = {
     updateInstallDetail: "Save your work. The app will close and start the installer.",
     updateInstallNow: "Install now",
     updateFailed: "The update could not be downloaded or verified.",
+    updateLaunchFailed: "The installer could not be started. The app will remain open. Please try again.",
     trayExit: "Exit",
   },
   de: {
@@ -177,6 +179,7 @@ const mainTranslations = {
     updateInstallDetail: "Speichere deine Arbeit. Die App wird geschlossen und startet das Installationsprogramm.",
     updateInstallNow: "Jetzt installieren",
     updateFailed: "Die Aktualisierung konnte nicht heruntergeladen oder überprüft werden.",
+    updateLaunchFailed: "Das Installationsprogramm konnte nicht gestartet werden. Die App bleibt geöffnet. Bitte versuche es erneut.",
     trayExit: "Beenden",
   },
   ru: {
@@ -237,6 +240,7 @@ const mainTranslations = {
     updateInstallDetail: "Сохраните работу. Приложение закроется и запустит установщик.",
     updateInstallNow: "Установить сейчас",
     updateFailed: "Не удалось загрузить или проверить обновление.",
+    updateLaunchFailed: "Не удалось запустить установщик. Приложение останется открытым. Попробуйте ещё раз.",
     trayExit: "Выход",
   }
 };

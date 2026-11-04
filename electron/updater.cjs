@@ -4,6 +4,8 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const { spawn } = require("child_process");
+const { Transform } = require("node:stream");
+const { pipeline } = require("node:stream/promises");
 
 const OWNER = "tomaszjader";
 const REPOSITORY = "szeptucha-desktop";
@@ -119,29 +121,24 @@ async function downloadInstaller(asset, destination, expectedSha256) {
     response.destroy();
     throw new Error("Installer is too large");
   }
-  await new Promise((resolve, reject) => {
-    let received = 0;
-    const hash = crypto.createHash("sha256");
-    const output = fs.createWriteStream(destination, { flags: "wx" });
-    response.on("data", chunk => {
+  let received = 0;
+  const hash = crypto.createHash("sha256");
+  const verify = new Transform({
+    transform(chunk, encoding, callback) {
       received += chunk.length;
-      hash.update(chunk);
       if (received > MAX_INSTALLER_BYTES) {
-        response.destroy(new Error("Installer is too large"));
-      }
-    });
-    response.on("error", reject);
-    output.on("error", reject);
-    output.on("finish", () => {
-      const actualSha256 = hash.digest("hex");
-      if (!hashesMatch(expectedSha256, actualSha256)) {
-        reject(new Error("Installer SHA-256 checksum mismatch"));
+        callback(new Error("Installer is too large"));
         return;
       }
-      resolve();
-    });
-    response.pipe(output);
+      hash.update(chunk);
+      callback(null, chunk);
+    },
   });
+  // Await closing every stream, including on failure, before removing the file.
+  await pipeline(response, verify, fs.createWriteStream(destination, { flags: "wx" }));
+  if (!hashesMatch(expectedSha256, hash.digest("hex"))) {
+    throw new Error("Installer SHA-256 checksum mismatch");
+  }
 }
 
 const defaultMessages = {
@@ -154,6 +151,7 @@ const defaultMessages = {
   updateInstallDetail: "Save your work. The app will close and start the installer.",
   updateInstallNow: "Install now",
   updateFailed: "The update could not be downloaded or verified.",
+  updateLaunchFailed: "The installer could not be started. The app will remain open. Please try again.",
 };
 
 function createUpdater({
@@ -168,7 +166,9 @@ function createUpdater({
   async function checkForUpdates() {
     if (checking || !app.isPackaged || platform !== "win32") return;
     checking = true;
-    let installerPath;
+    let installerDirectory;
+    let launching = false;
+    let installerStarted = false;
     try {
       const release = await latestRelease();
       const version = String(release.tag_name || "").replace(/^v/, "");
@@ -188,7 +188,9 @@ function createUpdater({
         noLink: true,
       });
       if (prompt.response !== 0) return;
-      installerPath = path.join(os.tmpdir(), `Szeptucha-Setup-${version}.exe`);
+      // A private directory prevents stale downloads from blocking a retry.
+      installerDirectory = await fs.promises.mkdtemp(path.join(os.tmpdir(), "Szeptucha-update-"));
+      const installerPath = path.join(installerDirectory, asset.name);
       const checksumAsset = (release.assets || []).find(item =>
         item.name === "SHA256SUMS.txt",
       );
@@ -210,26 +212,33 @@ function createUpdater({
         noLink: true,
       });
       if (ready.response !== 0) {
-        await fs.promises.unlink(installerPath).catch(() => {});
-        installerPath = null;
         return;
       }
-      const child = spawn(installerPath, [], { detached: true, stdio: "ignore" });
-      child.on("error", error => logger.error("Could not start Szeptucha installer", error));
+      launching = true;
+      const child = await new Promise((resolve, reject) => {
+        const installerProcess = spawn(installerPath, [], { detached: true, stdio: "ignore" });
+        installerProcess.once("error", reject);
+        installerProcess.once("spawn", () => resolve(installerProcess));
+      });
+      installerStarted = true;
       child.unref();
       app.quit();
     } catch (error) {
       logger.error("Szeptucha update check failed", error);
-      if (installerPath) {
-        await fs.promises.unlink(installerPath).catch(() => {});
+      if (installerDirectory) {
         await dialog.showMessageBox({
           type: "error",
           title: messages.updateTitle,
-          message: messages.updateFailed,
+          message: launching ? messages.updateLaunchFailed : messages.updateFailed,
           noLink: true,
         }).catch(() => {});
       }
     } finally {
+      // A running installer still needs its executable after the app exits.
+      if (installerDirectory && !installerStarted) {
+        await fs.promises.rm(installerDirectory, { recursive: true, force: true })
+          .catch(error => logger.error("Could not remove Szeptucha update files", error));
+      }
       checking = false;
     }
   }
