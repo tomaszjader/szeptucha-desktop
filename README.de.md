@@ -21,6 +21,10 @@ Aktuelle Version: **0.1.0**.
 - optionaler automatischer Start mit Windows.
 - lokale OCR-Erkennung eines markierten Bildschirmbereichs mit Tesseract.js (Polnisch und Englisch), Kopieren in die Zwischenablage, Verlauf und Unterstützung mehrerer Monitore.
 
+### Notizverlauf und Papierkorb
+
+Beim Löschen einer Notiz aus dem Verlauf wird ihre Datei in den Systempapierkorb verschoben. Zum Wiederherstellen unter Windows öffne den Papierkorb und wähle „Wiederherstellen“. Schlägt das Verschieben fehl, meldet die App einen Fehler, ohne die Datei dauerhaft zu löschen.
+
 ## Verwendung
 
 ### Aufnahme und Transkription

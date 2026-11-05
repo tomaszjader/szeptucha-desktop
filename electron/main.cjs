@@ -41,6 +41,7 @@ const {
 } = require("./settings.cjs");
 const { correctTextWithApi, transcribeAudioWithApi } = require("./ai-api.cjs");
 const { createUpdater } = require("./updater.cjs");
+const { createNoteFiles } = require("./note-files.cjs");
 const { createCorrectionController } = require("./correction-controller.cjs");
 const { createRecordingDrafts } = require("./recording-drafts.cjs");
 let recordingDrafts;
@@ -573,36 +574,12 @@ async function getNotesFromFolder(folderPath, options = {}, signal) {
   }
 }
 
-async function noteFilePath(fileName) {
-  if (typeof fileName !== "string" || !fileName || path.basename(fileName) !== fileName) {
-    throw new Error("Invalid note name");
-  }
-  const ext = path.extname(fileName).toLowerCase();
-  if (![".md", ".txt", ".json"].includes(ext)) throw new Error("Invalid note type");
-  const folderPath = settings().folder;
-  if (!folderPath) throw new Error("Notes folder is unavailable");
-  const filePath = path.join(folderPath, fileName);
-  const stat = await fs.promises.lstat(filePath);
-  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("Invalid note file");
-  return { filePath, stat, format: ext.slice(1) };
-}
-
-async function readNote(fileName) {
-  const { filePath, stat, format } = await noteFilePath(fileName);
-  if (stat.size > MAX_NOTE_READ_BYTES) throw new Error("Note is too large to open");
-  return noteText(await fs.promises.readFile(filePath, "utf8"), format);
-}
-
-async function deleteNote(fileName) {
-  try {
-    const { filePath } = await noteFilePath(fileName);
-    await fs.promises.unlink(filePath);
-    return true;
-  } catch (error) {
-    if (error.code === "ENOENT") return false;
-    throw error;
-  }
-}
+const { readNote, deleteNote } = createNoteFiles({
+  getFolder: () => settings().folder,
+  trashItem: filePath => shell.trashItem(filePath),
+  noteText,
+  maxReadBytes: MAX_NOTE_READ_BYTES,
+});
 
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;

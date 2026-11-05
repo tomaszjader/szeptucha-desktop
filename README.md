@@ -21,6 +21,10 @@ Current version: **0.1.0**.
 - optional startup with Windows.
 - local OCR for a selected screen region with Tesseract.js (Polish and English), clipboard copying, history, and multiple-monitor support.
 
+### Note history and trash
+
+Deleting a note from history moves its file to the system trash. To recover it on Windows, open the Recycle Bin and choose Restore. If moving the file to trash fails, the app reports an error without attempting permanent deletion.
+
 ## How to Use
 
 ### Recording and Transcription

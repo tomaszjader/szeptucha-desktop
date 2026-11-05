@@ -21,6 +21,10 @@ Aktualna wersja: **0.1.0**.
 - opcjonalne uruchamianie razem z systemem Windows.
 - lokalny OCR zaznaczonego fragmentu ekranu przez Tesseract.js (polski i angielski), z kopiowaniem wyniku do schowka, historią oraz obsługą wielu monitorów.
 
+### Historia notatek i kosz
+
+Usuwanie notatki z historii przenosi jej plik do kosza systemowego. Aby ją odzyskać, otwórz Kosz w Windows i wybierz „Przywróć”. Jeśli przeniesienie do kosza się nie powiedzie, aplikacja zgłosi błąd bez próby trwałego usunięcia pliku.
+
 ## Jak korzystać
 
 ### Nagrywanie i transkrypcja
