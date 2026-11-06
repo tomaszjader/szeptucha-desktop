@@ -88,6 +88,11 @@ jobs:
             throw "Note Recycle Bin smoke test failed."
           }
 
+          & .\node_modules\.bin\electron.cmd scripts/history-keyboard-smoke.cjs (Join-Path $installDir "resources/app.asar")
+          if ($LASTEXITCODE -ne 0) {
+            throw "History keyboard smoke test failed."
+          }
+
           $app = Start-Process -FilePath $appPath -ArgumentList "--remote-debugging-port=9223" -PassThru
           try {
             node scripts/windows-ui-smoke.cjs

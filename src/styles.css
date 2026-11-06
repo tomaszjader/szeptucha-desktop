@@ -1014,6 +1014,26 @@ select:focus {
 [data-theme="dark"] .note-card:hover {
   border-color: #8b5cd2;
 }
+.note-open {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  flex: 1;
+  border-radius: 6px;
+}
+.note-open:focus-visible,
+.history-container button:focus-visible,
+.note-modal button:focus-visible {
+  outline: 3px solid #8b5cd2;
+  outline-offset: 4px;
+}
 .note-card-header {
   display: flex;
   justify-content: space-between;
@@ -1105,26 +1125,33 @@ select:focus {
   color: #aaa3b2;
 }
 
-/* Modal Overlay */
-.note-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
+/* Native modal dialog keeps keyboard focus inside the note preview. */
+.note-modal::backdrop {
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(4px);
-  display: grid;
-  place-items: center;
-  padding: 24px;
 }
 .note-modal {
+  border: 1px solid #e2ddd7;
+  padding: 0;
+  color: inherit;
   background: #fff;
   border-radius: 20px;
-  width: min(650px, 100%);
+  width: min(650px, calc(100% - 48px));
   max-height: 85vh;
-  display: flex;
+  display: none;
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
   overflow: hidden;
+}
+.note-modal[open] {
+  display: flex;
+}
+.note-modal-status {
+  margin: 0;
+  padding: 0 24px 12px;
+}
+.note-modal-status:empty {
+  display: none;
 }
 [data-theme="dark"] .note-modal {
   background: #211e28;
