@@ -21,6 +21,12 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
   const [selectedLoading, setSelectedLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const selectedRequest = useRef(0);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogTitleRef = useRef<HTMLHeadingElement>(null);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [dialogMessage, setDialogMessage] = useState("");
+  const noteOpen = selectedNote !== null;
 
   const t = translations[lang];
 
@@ -49,6 +55,20 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
     };
   }, [page, search, reload]);
 
+  useEffect(() => {
+    if (!noteOpen || !dialogRef.current) return;
+    const dialog = dialogRef.current;
+    const opener = openerRef.current;
+    dialog.showModal();
+    dialogTitleRef.current?.focus();
+    return () => {
+      selectedRequest.current += 1;
+      dialog.close();
+      if (opener?.isConnected) opener.focus();
+      else searchRef.current?.focus();
+    };
+  }, [noteOpen]);
+
   const handleCopy = async (note: NoteItem, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
@@ -56,9 +76,11 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
       await navigator.clipboard.writeText(text);
       setCopiedId(note.id);
       showToast(t.copiedToClipboard);
+      if (selectedNote?.id === note.id) setDialogMessage(t.copiedToClipboard);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
       showToast(t.noteLoadFailed);
+      if (selectedNote?.id === note.id) setDialogMessage(t.noteLoadFailed);
     }
   };
 
@@ -79,7 +101,9 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
     }
   };
 
-  const openNote = async (note: NoteItem) => {
+  const openNote = async (note: NoteItem, opener: HTMLButtonElement) => {
+    openerRef.current = opener;
+    setDialogMessage("");
     const request = ++selectedRequest.current;
     setSelectedNote(note);
     setSelectedText(note.text);
@@ -88,7 +112,10 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
       const text = await window.szeptucha.readNote(note.id);
       if (selectedRequest.current === request) setSelectedText(text);
     } catch {
-      if (selectedRequest.current === request) showToast(t.noteLoadFailed);
+      if (selectedRequest.current === request) {
+        showToast(t.noteLoadFailed);
+        setDialogMessage(t.noteLoadFailed);
+      }
     } finally {
       if (selectedRequest.current === request) setSelectedLoading(false);
     }
@@ -137,6 +164,8 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
         <Search size={18} />
         <input
           type="text"
+          ref={searchRef}
+          aria-label={t.searchPlaceholder}
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -159,18 +188,25 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
             <div
               key={note.id}
               className={`note-card ${selectedNote?.id === note.id ? "active" : ""}`}
-              onClick={() => void openNote(note)}
             >
-              <div className="note-card-header">
-                <span className={`format-badge ${note.format}`}>{note.format.toUpperCase()}</span>
-                <span className="note-date">
-                  <Calendar size={12} />
-                  {formatDate(note.createdAt)}
+              <button
+                type="button"
+                className="note-open"
+                aria-label={note.filename}
+                aria-haspopup="dialog"
+                onClick={(event) => void openNote(note, event.currentTarget)}
+              >
+                <span className="note-card-header">
+                  <span className={`format-badge ${note.format}`}>{note.format.toUpperCase()}</span>
+                  <span className="note-date">
+                    <Calendar size={12} />
+                    {formatDate(note.createdAt)}
+                  </span>
                 </span>
-              </div>
-              <p className="note-preview">
-                {note.text ? `${note.text}${note.truncated ? "…" : ""}` : note.filename}
-              </p>
+                <span className="note-preview">
+                  {note.text ? `${note.text}${note.truncated ? "…" : ""}` : note.filename}
+                </span>
+              </button>
               <div className="note-card-actions">
                 <button
                   type="button"
@@ -207,29 +243,42 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
       )}
 
       {selectedNote && (
-        <div className="note-modal-overlay" onClick={closeSelectedNote}>
-          <div className="note-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="note-modal-header">
-              <h3>{selectedNote.filename}</h3>
-              <span className="note-date">{formatDate(selectedNote.createdAt)}</span>
-            </div>
-            <div className="note-modal-body">
-              <pre>{selectedLoading ? t.wakingUp : selectedText}</pre>
-            </div>
-            <div className="note-modal-footer">
-              <button
-                className="secondary"
-                onClick={(e) => handleCopy(selectedNote, e)}
-              >
-                <Copy size={16} />
-                {t.copyNote}
-              </button>
-              <button className="primary" onClick={closeSelectedNote}>
-                Zamknij
-              </button>
-            </div>
+        <dialog
+          ref={dialogRef}
+          className="note-modal"
+          aria-labelledby="note-dialog-title"
+          onCancel={(event) => {
+            event.preventDefault();
+            closeSelectedNote();
+          }}
+          onClick={(event) => {
+            if (event.target !== event.currentTarget) return;
+            const bounds = event.currentTarget.getBoundingClientRect();
+            if (event.clientX < bounds.left || event.clientX > bounds.right ||
+                event.clientY < bounds.top || event.clientY > bounds.bottom) closeSelectedNote();
+          }}
+        >
+          <div className="note-modal-header">
+            <h3 id="note-dialog-title" ref={dialogTitleRef} tabIndex={-1}>{selectedNote.filename}</h3>
+            <span className="note-date">{formatDate(selectedNote.createdAt)}</span>
           </div>
-        </div>
+          <div className="note-modal-body">
+            <pre>{selectedLoading ? t.wakingUp : selectedText}</pre>
+          </div>
+          <p className="note-modal-status" role="status">{dialogMessage}</p>
+          <div className="note-modal-footer">
+            <button
+              className="secondary"
+              onClick={(e) => handleCopy(selectedNote, e)}
+            >
+              {copiedId === selectedNote.id ? <Check size={16} /> : <Copy size={16} />}
+              {t.copyNote}
+            </button>
+            <button type="button" className="primary note-close" onClick={closeSelectedNote}>
+              {t.closeNote}
+            </button>
+          </div>
+        </dialog>
       )}
     </div>
   );
