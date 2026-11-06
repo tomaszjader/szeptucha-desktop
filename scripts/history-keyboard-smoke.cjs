@@ -41,6 +41,10 @@ app.whenReady().then(async () => {
     window.webContents.focus();
     const key = async (keyCode, modifiers = []) => {
       window.webContents.sendInputEvent({ type: "keyDown", keyCode, modifiers });
+      // sendInputEvent does not generate the character/keypress stage automatically.
+      // Native button activation on Enter requires the carriage-return character.
+      const character = keyCode === "Return" ? String.fromCharCode(13) : keyCode === "Space" ? " " : null;
+      if (character) window.webContents.sendInputEvent({ type: "char", keyCode: character, modifiers });
       window.webContents.sendInputEvent({ type: "keyUp", keyCode, modifiers });
       await delay(100);
     };
