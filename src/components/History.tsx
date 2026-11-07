@@ -15,6 +15,9 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const retryButtonRef = useRef<HTMLButtonElement>(null);
+  const retryFocus = useRef(false);
   const [reload, setReload] = useState(0);
   const [selectedNote, setSelectedNote] = useState<NoteItem | null>(null);
   const [selectedText, setSelectedText] = useState("");
@@ -34,6 +37,7 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
     let active = true;
     const timer = setTimeout(async () => {
       setLoading(true);
+      setLoadFailed(false);
       try {
         const result = await window.szeptucha.getNotes({ page, search });
         if (!active) return;
@@ -42,6 +46,7 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
         if (result.page !== page) setPage(result.page);
       } catch {
         if (active) {
+          setLoadFailed(true);
           setNotes([]);
           setTotal(0);
         }
@@ -54,6 +59,20 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
       clearTimeout(timer);
     };
   }, [page, search, reload]);
+
+  useEffect(() => {
+    if (loading || !retryFocus.current) return;
+    retryFocus.current = false;
+    // Keep keyboard users at the retry action on failure, or at search on success.
+    (loadFailed ? retryButtonRef.current : searchRef.current)?.focus();
+  }, [loading, loadFailed]);
+
+  const retryHistory = () => {
+    retryFocus.current = true;
+    setLoading(true);
+    setLoadFailed(false);
+    setReload(value => value + 1);
+  };
 
   useEffect(() => {
     if (!noteOpen || !dialogRef.current) return;
@@ -147,7 +166,7 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
   };
 
   return (
-    <div className="history-container">
+    <div className="history-container" aria-busy={loading}>
       <div className="history-header">
         <div>
           <p className="eyebrow">{t.historyTitle.toUpperCase()}</p>
@@ -177,6 +196,13 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
 
       {loading ? (
         <div className="history-loading">{t.wakingUp}</div>
+      ) : loadFailed ? (
+        <div className="history-error">
+          <p role="alert">{t.historyLoadFailed}</p>
+          <button type="button" ref={retryButtonRef} className="secondary history-retry" onClick={retryHistory}>
+            {t.retry}
+          </button>
+        </div>
       ) : notes.length === 0 ? (
         <div className="history-empty">
           <FileText size={48} />
@@ -230,7 +256,7 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
         </div>
       )}
 
-      {!loading && total > pageSize && (
+      {!loading && !loadFailed && total > pageSize && (
         <div className="history-pagination">
           <button className="secondary" disabled={page === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>
             {t.previousPage}

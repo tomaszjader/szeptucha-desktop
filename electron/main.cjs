@@ -511,7 +511,7 @@ async function getNotesFromFolder(folderPath, options = {}, signal) {
   const query = typeof request.search === "string"
     ? request.search.trim().slice(0, 200).toLowerCase()
     : "";
-  if (!folderPath) return { items: [], total: 0, page: 0, pageSize };
+  if (!folderPath) throw new Error("NOTES_FOLDER_UNAVAILABLE");
 
   try {
     const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
@@ -569,8 +569,10 @@ async function getNotesFromFolder(folderPath, options = {}, signal) {
     if (signal?.aborted) return { items: [], total: 0, page: 0, pageSize };
     return { items, total, page, pageSize };
   } catch (e) {
+    if (signal?.aborted) return { items: [], total: 0, page: 0, pageSize };
     console.error("Error reading notes:", e);
-    return { items: [], total: 0, page: 0, pageSize };
+    // IPC must reject so the renderer can distinguish a failed read from an empty folder.
+    throw new Error("NOTES_HISTORY_UNAVAILABLE");
   }
 }
 
