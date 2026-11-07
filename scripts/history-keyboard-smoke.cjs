@@ -92,6 +92,57 @@ app.whenReady().then(async () => {
     await key("Return");
     await until(() => evaluate('!document.querySelector("dialog") && document.activeElement.matches("button.note-open")'), "Close restores focus");
     console.log("Packaged history keyboard smoke test passed: Tab, Enter, Space, Escape, modal focus and focus restoration.");
+
+    // Test real folder/IPC failures and recovery in the same isolated packaged app.
+    await evaluate('document.querySelectorAll("aside nav button")[0].click()');
+    const offlineNotes = `${notes}-offline`;
+    fs.renameSync(notes, offlineNotes);
+    await evaluate('document.querySelectorAll("aside nav button")[1].click()');
+    const hasError = () => evaluate('Boolean(document.querySelector(".history-error [role=alert]"))');
+    await until(hasError, "missing folder shows an error");
+    assert.equal(await evaluate('Boolean(document.querySelector(".history-empty"))'), false, "folder failure must not show empty history");
+    assert.equal(await evaluate('document.querySelector(".history-error [role=alert]").textContent'),
+      "Could not load note history. Check that the notes folder exists and you have access to it.");
+    assert.equal(await evaluate('(async () => { try { await window.szeptucha.getNotes({}); return false; } catch { return true; } })()'),
+      true, "the real notes:get IPC must reject folder read failures");
+
+    const retry = async () => {
+      await evaluate('window.previousRetryButton = document.querySelector(".history-retry"); window.previousRetryButton.focus()');
+      await key("Return");
+      await until(() => evaluate('document.querySelector(".history-container").getAttribute("aria-busy") === "false"'), "retry completes");
+    };
+    await retry();
+    await until(() => evaluate('Boolean(document.querySelector(".history-retry")) && document.querySelector(".history-retry") !== window.previousRetryButton'),
+      "a failed retry displays a new error panel");
+    assert.equal(await evaluate('document.activeElement.matches(".history-retry")'), true, "failed retry restores keyboard focus");
+
+    // An existing path that is not a directory must also produce an error.
+    fs.writeFileSync(notes, "This path is temporarily a file, not the notes folder.");
+    await retry();
+    await until(hasError, "non-directory notes path shows an error");
+    assert.equal(await evaluate('Boolean(document.querySelector(".history-empty"))'), false);
+    assert.equal(await evaluate('(async () => { try { await window.szeptucha.getNotes({}); return false; } catch { return true; } })()'), true);
+
+    // Recovery keeps the user's query; a genuinely empty folder is a successful result.
+    await evaluate('document.querySelector(".search-bar input").focus()');
+    window.webContents.insertText("Keyboard");
+    await until(() => evaluate('document.querySelector(".search-bar input").value === "Keyboard"'), "search input is retained");
+    await delay(300);
+    await until(hasError, "search folder failure is still reported");
+    fs.unlinkSync(notes);
+    fs.mkdirSync(notes);
+    await retry();
+    await until(() => evaluate('Boolean(document.querySelector(".history-empty")) && !document.querySelector(".history-error")'), "empty folder succeeds after retry");
+    assert.equal(await evaluate('document.querySelector(".search-bar input").value'), "Keyboard", "retry preserves the search query");
+    assert.equal(await evaluate('document.activeElement.matches(".search-bar input")'), true, "successful retry focuses search");
+
+    // Restored notes remain readable after the recovery.
+    await evaluate('document.querySelectorAll("aside nav button")[0].click()');
+    fs.rmdirSync(notes);
+    fs.renameSync(offlineNotes, notes);
+    await evaluate('document.querySelectorAll("aside nav button")[1].click()');
+    await until(() => evaluate('Boolean(document.querySelector(".note-open")) && !document.querySelector(".history-error")'), "restored notes load normally");
+    console.log("Packaged history recovery passed: missing/non-directory folders reject, failed retry stays usable, and recovery preserves search and focus.");
   } catch (error) {
     console.error(error);
     exitCode = 1;

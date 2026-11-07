@@ -962,7 +962,7 @@ select:focus {
   padding: 12px 0 !important;
   width: 100%;
 }
-.history-loading, .history-empty {
+.history-loading, .history-empty, .history-error {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -970,6 +970,13 @@ select:focus {
   padding: 60px 20px;
   color: #817987;
   gap: 12px;
+}
+.history-error {
+  text-align: center;
+}
+.history-error p {
+  max-width: 520px;
+  margin: 0;
 }
 .notes-grid {
   display: grid;
