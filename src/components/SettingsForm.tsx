@@ -8,12 +8,21 @@ interface SettingsFormProps {
   setS: React.Dispatch<React.SetStateAction<Settings>>;
   onSave: (next?: Settings) => Promise<void>;
   isSaving: boolean;
+  saveError: string;
+  shortcutState: ShortcutState | null;
   lang: AppLanguage;
 }
 
-export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, isSaving, lang }) => {
+export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, isSaving, saveError, shortcutState, lang }) => {
   const [showKey, setShowKey] = useState(false);
   const t = translations[lang];
+  const shortcutWarning = (id: keyof ShortcutState, value: string) => {
+    const state = shortcutState?.[id];
+    if (!state || state.accelerator !== value) return null;
+    const message = state.status === "conflict" ? t.shortcutConflict
+      : state.status === "unavailable" ? t.shortcutUnavailable : "";
+    return message ? <span className="shortcut-warning" role="alert">{message}</span> : null;
+  };
 
   return (
     <section id="settings" className="settings">
@@ -108,6 +117,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, isS
             onChange={(val) => setS({ ...s, recordHotkey: val })}
             lang={lang}
           />
+          {shortcutWarning("recording", s.recordHotkey)}
         </label>
 
         <label>
@@ -117,6 +127,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, isS
             onChange={(val) => setS({ ...s, correctHotkey: val })}
             lang={lang}
           />
+          {shortcutWarning("correction", s.correctHotkey)}
         </label>
 
         <label>
@@ -200,6 +211,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, isS
         </label>
       </fieldset>
 
+      {saveError && <p className="settings-save-error" role="alert">{saveError}</p>}
       <button className="primary" disabled={isSaving} aria-busy={isSaving} onClick={() => void onSave()}>
         <Check />
         {isSaving ? t.savingSettings : t.saveSettingsBtn}

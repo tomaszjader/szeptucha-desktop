@@ -1242,3 +1242,14 @@ select:focus {
 
 .recording-recovery { max-width: 520px; margin: 16px auto; }
 .recording-recovery button { margin: 4px; }
+
+.shortcut-warning, .settings-save-error {
+  display: block;
+  color: #a12d25;
+  font-size: 13px;
+  line-height: 1.5;
+}
+[data-theme="dark"] .shortcut-warning,
+[data-theme="dark"] .settings-save-error {
+  color: #ffaaa0;
+}

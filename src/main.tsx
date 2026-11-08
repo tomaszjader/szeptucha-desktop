@@ -44,6 +44,8 @@ function App() {
   const [ready, setReady] = useState(false);
   const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsSaveError, setSettingsSaveError] = useState("");
+  const [shortcutState, setShortcutState] = useState<ShortcutState | null>(null);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settingsSaveInFlight = useRef(false);
@@ -102,6 +104,19 @@ function App() {
     return () => { alive = false; unsubscribe(); };
   }, []);
 
+  useEffect(() => {
+    let alive = true;
+    let updated = false;
+    const unsubscribe = window.szeptucha.onShortcutState(state => {
+      updated = true;
+      if (alive) setShortcutState(state);
+    });
+    void window.szeptucha.getShortcutState().then(state => {
+      if (alive && !updated) setShortcutState(state);
+    }).catch(() => {});
+    return () => { alive = false; unsubscribe(); };
+  }, []);
+
   const soundEnabled = useRef(s.soundEnabled ?? true);
   useEffect(() => {
     soundEnabled.current = s.soundEnabled ?? true;
@@ -143,14 +158,19 @@ function App() {
     if (settingsSaveInFlight.current) return;
     settingsSaveInFlight.current = true;
     setSettingsSaving(true);
+    setSettingsSaveError("");
     try {
       const saved = await window.szeptucha.saveSettings(next);
       setS(saved);
       showToast(t.settingsSaved, "success", 2500);
     } catch (error) {
-      const message = error instanceof Error && error.message === "SECURE_STORAGE_UNAVAILABLE"
-        ? t.secureStorageUnavailable
-        : t.settingsSaveFailed;
+      const code = error instanceof Error ? error.message : String(error);
+      const message = code.includes("SHORTCUT_CONFLICT")
+        ? t.shortcutConflict
+        : code.includes("SECURE_STORAGE_UNAVAILABLE")
+          ? t.secureStorageUnavailable
+          : t.settingsSaveFailed;
+      setSettingsSaveError(message);
       showToast(message, "error");
     } finally {
       settingsSaveInFlight.current = false;
@@ -250,6 +270,8 @@ function App() {
             setS={setS}
             onSave={saveSettings}
             isSaving={settingsSaving}
+            saveError={settingsSaveError}
+            shortcutState={shortcutState}
             lang={currentLang}
           />
         )}

@@ -17,11 +17,18 @@ interface NotesPage {
   pageSize: number;
 }
 
+type ShortcutState = Record<'recording' | 'correction', {
+  accelerator: string;
+  status: 'active' | 'disabled' | 'unavailable' | 'conflict';
+}>;
+
 interface Window {
   szeptucha: {
     openOcr(): void;
     setTheme(theme: 'light' | 'dark'): void;
     getSettings(): Promise<Settings>;
+    getShortcutState(): Promise<ShortcutState | null>;
+    onShortcutState(cb: (state: ShortcutState) => void): () => void;
     saveSettings(s: Settings): Promise<Settings>;
     chooseFolder(): Promise<string | null>;
     toggleRecording(): Promise<{ text: string; path: string } | undefined>;
