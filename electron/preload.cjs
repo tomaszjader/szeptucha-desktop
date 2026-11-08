@@ -75,6 +75,12 @@ contextBridge.exposeInMainWorld("szeptucha", {
   openOcr: () => ipcRenderer.send("ocr:show"),
   setTheme: theme => ipcRenderer.send("theme:set", theme),
   getSettings: () => ipcRenderer.invoke("settings:get"),
+  getShortcutState: () => ipcRenderer.invoke("shortcuts:get"),
+  onShortcutState: cb => {
+    const listener = (_, state) => cb(state);
+    ipcRenderer.on("shortcuts:state", listener);
+    return () => ipcRenderer.removeListener("shortcuts:state", listener);
+  },
   saveSettings: settings => ipcRenderer.invoke("settings:save", settings),
   chooseFolder: () => ipcRenderer.invoke("folder:choose"),
   openFolder: () => ipcRenderer.invoke("folder:open"),

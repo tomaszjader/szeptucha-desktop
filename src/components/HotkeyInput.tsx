@@ -12,9 +12,11 @@ export const HotkeyInput: React.FC<HotkeyInputProps> = ({ value, onChange, lang 
   const [isRecording, setIsRecording] = useState(false);
   const t = translations[lang];
 
+  const isMac = navigator.platform.toLowerCase().includes("mac");
   const displayValue = value
     ? value
-        .replace("CommandOrControl", "Ctrl")
+        .replace("CommandOrControl", isMac ? "⌘" : "Ctrl")
+        .replace("Super", isMac ? "⌘" : "Win")
         .replace("Control", "Ctrl")
         .replace("Key", "")
     : t.pressShortcutKeys;
@@ -30,7 +32,8 @@ export const HotkeyInput: React.FC<HotkeyInputProps> = ({ value, onChange, lang 
 
     const parts: string[] = [];
 
-    if (e.ctrlKey || e.metaKey) parts.push("CommandOrControl");
+    if (e.ctrlKey) parts.push("Control");
+    if (e.metaKey) parts.push("Super");
     if (e.altKey) parts.push("Alt");
     if (e.shiftKey) parts.push("Shift");
 

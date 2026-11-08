@@ -143,6 +143,45 @@ app.whenReady().then(async () => {
     await evaluate('document.querySelectorAll("aside nav button")[1].click()');
     await until(() => evaluate('Boolean(document.querySelector(".note-open")) && !document.querySelector(".history-error")'), "restored notes load normally");
     console.log("Packaged history recovery passed: missing/non-directory folders reject, failed retry stays usable, and recovery preserves search and focus.");
+
+    // Settings must report conflicts without overwriting the working configuration.
+    await until(() => evaluate('window.szeptucha.getShortcutState().then(Boolean)'), "startup shortcut state");
+    const originalSettingsFile = fs.readFileSync(path.join(directory, "settings.json"), "utf8");
+    const originalShortcutState = await evaluate('window.szeptucha.getShortcutState()');
+    assert.equal(await evaluate('(async () => { const s = await window.szeptucha.getSettings(); try { await window.szeptucha.saveSettings({ ...s, recordHotkey: "Ctrl+F6", correctHotkey: "Control+F6" }); return false; } catch (error) { return String(error).includes("SHORTCUT_CONFLICT"); } })()'),
+      true, "IPC rejects equivalent shortcut aliases");
+    assert.equal(fs.readFileSync(path.join(directory, "settings.json"), "utf8"), originalSettingsFile);
+    assert.deepEqual(await evaluate('window.szeptucha.getShortcutState()'), originalShortcutState);
+
+    await evaluate('document.querySelectorAll("aside nav button")[3].click()');
+    await until(() => evaluate('document.querySelectorAll(".hotkey-recorder input").length === 2'), "shortcut settings");
+    await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].focus()');
+    await key("F8", ["control", "alt"]);
+    await evaluate('document.querySelectorAll(".hotkey-recorder input")[1].focus()');
+    await key("F8", ["control", "alt"]);
+    await evaluate('document.querySelector("#settings > button.primary").click()');
+    await until(() => evaluate('document.querySelector(".settings-save-error")?.textContent.includes("must use different shortcuts")'), "localized duplicate error");
+    assert.equal(fs.readFileSync(path.join(directory, "settings.json"), "utf8"), originalSettingsFile, "duplicate UI save preserves disk settings");
+
+    // This combination is owned by OCR or reserved by Windows; it cannot be taken over.
+    await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].focus()');
+    await key("Q", ["meta", "shift"]);
+    await evaluate('document.querySelectorAll(".hotkey-recorder")[1].querySelector(".clear-btn").click()');
+    await evaluate('document.querySelector("#settings > button.primary").click()');
+    await until(() => evaluate('document.querySelector(".shortcut-warning")?.textContent.includes("unavailable")'), "persistent unavailable shortcut warning");
+    const shortcutState = await evaluate('window.szeptucha.getShortcutState()');
+    assert.equal(shortcutState.recording.accelerator, "Super+Shift+Q", "Win must not be captured as Control");
+    assert.equal(shortcutState.recording.status, "unavailable");
+    assert.equal(shortcutState.correction.status, "disabled");
+    assert.equal(await evaluate('Boolean(document.querySelector(".settings-save-error"))'), false, "unavailable shortcuts still allow saving other settings");
+    await evaluate('document.querySelectorAll("aside nav button")[0].click()');
+    await evaluate('document.querySelectorAll("aside nav button")[3].click()');
+    await until(() => evaluate('Boolean(document.querySelector(".shortcut-warning"))'), "warning survives leaving settings");
+    await evaluate('document.querySelectorAll(".hotkey-recorder")[0].querySelector(".clear-btn").click()');
+    await evaluate('document.querySelector("#settings > button.primary").click()');
+    await until(() => evaluate('window.szeptucha.getShortcutState().then(s => s.recording.status === "disabled" && s.correction.status === "disabled")'), "disabled shortcuts recover cleanly");
+    assert.equal(await evaluate('Boolean(document.querySelector(".shortcut-warning"))'), false);
+    console.log("Packaged shortcut settings passed: duplicate rejection, unchanged configuration, Win modifier capture, unavailable warning and disabled recovery.");
   } catch (error) {
     console.error(error);
     exitCode = 1;

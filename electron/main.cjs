@@ -23,7 +23,6 @@ let win,
   recording = false,
   recordingBusy = false,
   pasteTranscription = false;
-let registeredHotkeys = [];
 let activeNotesRequest = null;
 // A second app instance must not replace or clean up the active recording draft.
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -41,6 +40,7 @@ const {
 } = require("./settings.cjs");
 const { correctTextWithApi, transcribeAudioWithApi } = require("./ai-api.cjs");
 const { createUpdater } = require("./updater.cjs");
+const { createShortcutManager } = require("./shortcuts.cjs");
 const { createNoteFiles } = require("./note-files.cjs");
 const { createCorrectionController } = require("./correction-controller.cjs");
 const { createRecordingDrafts } = require("./recording-drafts.cjs");
@@ -298,25 +298,18 @@ function requestRecordingToggle(source) {
   if (recordingBusy && !recording) return;
   win?.webContents.send("recording:toggle", source);
 }
+const shortcutManager = createShortcutManager({
+  globalShortcut,
+  actions: {
+    recording: () => requestRecordingToggle("shortcut"),
+    correction: () => correctText(),
+  },
+  onState: state => win?.webContents.send("shortcuts:state", state),
+});
 function shortcuts() {
-  for (const hotkey of registeredHotkeys) globalShortcut.unregister(hotkey);
-  registeredHotkeys = [];
-  const s = settings();
-  if (s.recordHotkey) {
-    try {
-      if (globalShortcut.register(s.recordHotkey, () => requestRecordingToggle("shortcut"))) registeredHotkeys.push(s.recordHotkey);
-    } catch (e) {
-      console.error("Failed to register record hotkey:", e);
-    }
-  }
-  if (s.correctHotkey) {
-    try {
-      if (globalShortcut.register(s.correctHotkey, () => correctText())) registeredHotkeys.push(s.correctHotkey);
-    } catch (e) {
-      console.error("Failed to register correct hotkey:", e);
-    }
-  }
+  shortcutManager.apply(settings());
 }
+
 function trayMenu() {
   const s = settings();
   const lang = getLang(s);
@@ -609,8 +602,11 @@ ipcMain.on("theme:set", (_, theme) => {
   );
 });
 ipcMain.handle("settings:get", () => settings());
+ipcMain.handle("shortcuts:get", () => shortcutManager.getState());
 ipcMain.handle("settings:save", (_, s) => {
-  const saved = save(s);
+  const next = sanitizeSettings(s);
+  shortcutManager.validate(next);
+  const saved = save(next);
   app.setLoginItemSettings({ openAtLogin: saved.launchAtStartup });
   shortcuts();
   trayMenu();
