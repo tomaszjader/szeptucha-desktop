@@ -8,6 +8,7 @@
     "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "tsc && vite build && electron-builder --publish never",
     "build:web": "tsc && vite build",
+    "build:windows:ci": "npm run build:web && node scripts/build-windows.cjs",
     "start": "electron .",
     "test": "node --test",
     "pretest:e2e:ocr": "npm run build:web",
