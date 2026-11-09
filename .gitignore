@@ -37,6 +37,7 @@ Thumbs.db
 Desktop.ini
 
 # Electron Builder
+.cache/
 *.blockmap
 builder-debug.yml
 builder-effective-config.yaml
