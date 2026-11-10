@@ -144,6 +144,60 @@ app.whenReady().then(async () => {
     await until(() => evaluate('Boolean(document.querySelector(".note-open")) && !document.querySelector(".history-error")'), "restored notes load normally");
     console.log("Packaged history recovery passed: missing/non-directory folders reject, failed retry stays usable, and recovery preserves search and focus.");
 
+    // More than one page is required to detect a preload bridge dropping query options.
+    await evaluate('document.querySelectorAll("aside nav button")[0].click()');
+    const fixtureNames = [];
+    for (let i = 0; i < 29; i += 1) {
+      const name = i === 0 ? "filename-igła.txt" : `fixture-${String(i).padStart(2, "0")}.txt`;
+      fixtureNames.push(name);
+      const file = path.join(notes, name);
+      fs.writeFileSync(file, i === 1 ? "Only this note contains needle-body-42." : `Plain fixture ${i}.`);
+      const modified = new Date(Date.UTC(2020, 0, 1, 0, 0, i));
+      fs.utimesSync(file, modified, modified);
+    }
+    const firstPage = await evaluate('window.szeptucha.getNotes({ page: 0, search: "" })');
+    const secondPage = await evaluate('window.szeptucha.getNotes({ page: 1, search: "" })');
+    assert.equal(firstPage.total, 30);
+    assert.equal(firstPage.items.length, 24);
+    assert.equal(firstPage.page, 0);
+    assert.equal(secondPage.total, 30);
+    assert.equal(secondPage.items.length, 6);
+    assert.equal(secondPage.page, 1);
+    assert.equal(firstPage.items.some(first => secondPage.items.some(second => second.id === first.id)), false, "pages must contain different notes");
+    const clamped = await evaluate('window.szeptucha.getNotes({ page: 999, search: "" })');
+    assert.equal(clamped.page, 1, "backend still clamps pages outside the range");
+    const nameMatch = await evaluate('window.szeptucha.getNotes({ page: 0, search: "  IGŁA  " })');
+    assert.deepEqual(nameMatch.items.map(note => note.id), [fixtureNames[0]], "filename query reaches backend with Unicode/case handling");
+    const bodyMatch = await evaluate('window.szeptucha.getNotes({ page: 0, search: "needle-body-42" })');
+    assert.deepEqual(bodyMatch.items.map(note => note.id), [fixtureNames[1]], "body query must not return unrelated notes");
+
+    await evaluate('document.querySelectorAll("aside nav button")[1].click()');
+    await until(() => evaluate('document.querySelectorAll(".note-open").length === 24 && Boolean(document.querySelector(".history-pagination"))'), "first UI page");
+    const visibleNames = () => evaluate('Array.from(document.querySelectorAll(".note-open"), button => button.getAttribute("aria-label"))');
+    assert.deepEqual(await visibleNames(), firstPage.items.map(note => note.id));
+    await evaluate('document.querySelectorAll(".history-pagination button")[1].click()');
+    await until(() => evaluate('document.querySelector(".history-pagination span")?.textContent.includes("2 / 2") && document.querySelectorAll(".note-open").length === 6'), "Next loads the second page");
+    assert.deepEqual(await visibleNames(), secondPage.items.map(note => note.id));
+    await evaluate('document.querySelectorAll(".history-pagination button")[0].click()');
+    await until(() => evaluate('document.querySelector(".history-pagination span")?.textContent.includes("1 / 2") && document.querySelectorAll(".note-open").length === 24'), "Previous restores the first page");
+    assert.deepEqual(await visibleNames(), firstPage.items.map(note => note.id));
+    await evaluate('document.querySelectorAll(".history-pagination button")[1].click()');
+    await until(() => evaluate('document.querySelectorAll(".note-open").length === 6'), "return to page two before searching");
+    await evaluate('document.querySelector(".search-bar input").focus()');
+    await window.webContents.insertText("needle-body-42");
+    await until(async () => {
+      const names = await visibleNames();
+      return names.length === 1 && names[0] === fixtureNames[1];
+    }, "search from page two resets pagination and filters by note body");
+    assert.equal(await evaluate('Boolean(document.querySelector(".history-pagination"))'), false);
+    await evaluate('document.querySelector(".search-bar input").select()');
+    await window.webContents.insertText("no-such-query-98231");
+    await until(() => evaluate('Boolean(document.querySelector(".history-empty")) && !document.querySelector(".history-error")'), "unmatched query shows an empty result");
+    await evaluate('document.querySelector(".search-bar input").select()');
+    await key("Backspace");
+    await until(() => evaluate('document.querySelector(".search-bar input").value === "" && document.querySelectorAll(".note-open").length === 24'), "clearing search restores the first page");
+    console.log("Packaged history query regression passed: separate pages, filename/body search, UI navigation, empty results and clearing search.");
+
     // Settings must report conflicts without overwriting the working configuration.
     await until(() => evaluate('window.szeptucha.getShortcutState().then(Boolean)'), "startup shortcut state");
     const originalSettingsFile = fs.readFileSync(path.join(directory, "settings.json"), "utf8");
