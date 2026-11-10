@@ -103,7 +103,7 @@ contextBridge.exposeInMainWorld("szeptucha", {
   },
   getRecordingState: () => recording.getState(),
   onRecordingState: cb => recording.subscribe(cb),
-  getNotes: () => ipcRenderer.invoke("notes:get"),
+  getNotes: options => ipcRenderer.invoke("notes:get", options),
   readNote: filePath => ipcRenderer.invoke("notes:read", filePath),
   deleteNote: filePath => ipcRenderer.invoke("notes:delete", filePath),
   onStatus: cb => {
