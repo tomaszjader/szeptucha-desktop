@@ -22,6 +22,9 @@ export const HotkeyInput: React.FC<HotkeyInputProps> = ({ value, onChange, lang 
     : t.pressShortcutKeys;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Leave plain Tab/Shift+Tab to the browser; blur ends capture after focus moves.
+    if (e.key === "Tab" && !e.ctrlKey && !e.altKey && !e.metaKey) return;
+
     e.preventDefault();
     e.stopPropagation();
 
