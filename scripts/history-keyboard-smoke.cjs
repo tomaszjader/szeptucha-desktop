@@ -209,6 +209,36 @@ app.whenReady().then(async () => {
 
     await evaluate('document.querySelectorAll("aside nav button")[3].click()');
     await until(() => evaluate('document.querySelectorAll(".hotkey-recorder input").length === 2'), "shortcut settings");
+    const originalShortcutDisplays = await evaluate('Array.from(document.querySelectorAll(".hotkey-recorder input"), input => input.value)');
+    await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].focus()');
+    await key("Tab");
+    assert.equal(await evaluate('document.activeElement === document.querySelectorAll(".hotkey-recorder input")[1]'), true,
+      "Tab leaves the recording shortcut and reaches the correction shortcut");
+    assert.equal(await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].value'), originalShortcutDisplays[0],
+      "Tab must not overwrite the recording shortcut");
+    await key("Tab");
+    assert.equal(await evaluate('document.activeElement.tagName === "SELECT" && Boolean(document.activeElement.querySelector("option[value=system]"))'), true,
+      "Tab leaves the correction shortcut and reaches the language selector");
+    assert.deepEqual(await evaluate('Array.from(document.querySelectorAll(".hotkey-recorder input"), input => input.value)'), originalShortcutDisplays,
+      "forward traversal does not change either shortcut");
+
+    // Clear buttons are part of the natural reverse tab order when not capturing.
+    let returnedToRecording = false;
+    for (let i = 0; i < 6; i += 1) {
+      await key("Tab", ["shift"]);
+      if (await evaluate('document.activeElement === document.querySelectorAll(".hotkey-recorder input")[0]')) {
+        returnedToRecording = true;
+        break;
+      }
+    }
+    assert.equal(returnedToRecording, true, "Shift+Tab traverses both shortcut fields without trapping focus");
+    await key("Tab", ["shift"]);
+    assert.equal(await evaluate('document.activeElement === document.querySelector(".key button")'), true,
+      "Shift+Tab leaves the recording shortcut toward the previous control");
+    assert.deepEqual(await evaluate('Array.from(document.querySelectorAll(".hotkey-recorder input"), input => input.value)'), originalShortcutDisplays,
+      "reverse traversal does not record Shift+Tab");
+    assert.equal(fs.readFileSync(path.join(directory, "settings.json"), "utf8"), originalSettingsFile);
+    console.log("Packaged shortcut Tab navigation passed: forward/reverse focus traversal preserves both shortcut values.");
     await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].focus()');
     await key("F8", ["control", "alt"]);
     await evaluate('document.querySelectorAll(".hotkey-recorder input")[1].focus()');
