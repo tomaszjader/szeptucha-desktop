@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Search, Copy, Trash2, ExternalLink, FileText, Check, Calendar } from "lucide-react";
+import { Search, Copy, Trash2, ExternalLink, FileText, Check, Calendar, RefreshCw } from "lucide-react";
 import { translations, type AppLanguage } from "../translations";
 
 interface HistoryProps {
@@ -17,7 +17,8 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const retryButtonRef = useRef<HTMLButtonElement>(null);
-  const retryFocus = useRef(false);
+  const refreshButtonRef = useRef<HTMLButtonElement>(null);
+  const reloadFocus = useRef<"retry" | "refresh" | null>(null);
   const [reload, setReload] = useState(0);
   const [selectedNote, setSelectedNote] = useState<NoteItem | null>(null);
   const [selectedText, setSelectedText] = useState("");
@@ -61,14 +62,16 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
   }, [page, search, reload]);
 
   useEffect(() => {
-    if (loading || !retryFocus.current) return;
-    retryFocus.current = false;
-    // Keep keyboard users at the retry action on failure, or at search on success.
-    (loadFailed ? retryButtonRef.current : searchRef.current)?.focus();
+    if (loading || !reloadFocus.current) return;
+    const origin = reloadFocus.current;
+    reloadFocus.current = null;
+    if (origin === "refresh") refreshButtonRef.current?.focus();
+    else (loadFailed ? retryButtonRef.current : searchRef.current)?.focus();
   }, [loading, loadFailed]);
 
-  const retryHistory = () => {
-    retryFocus.current = true;
+  const reloadHistory = (origin: "retry" | "refresh") => {
+    if (loading) return;
+    reloadFocus.current = origin;
     setLoading(true);
     setLoadFailed(false);
     setReload(value => value + 1);
@@ -173,10 +176,22 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
           <h1>{t.historyTitle}</h1>
           <p>{t.historyDesc}</p>
         </div>
-        <button className="secondary" onClick={onOpenFolder}>
-          <ExternalLink size={16} />
-          {t.openFolderBtn}
-        </button>
+        <div className="history-header-actions">
+          <button
+            type="button"
+            ref={refreshButtonRef}
+            className="secondary history-refresh"
+            aria-disabled={loading}
+            onClick={() => reloadHistory("refresh")}
+          >
+            <RefreshCw size={16} />
+            {t.refreshHistory}
+          </button>
+          <button type="button" className="secondary" onClick={onOpenFolder}>
+            <ExternalLink size={16} />
+            {t.openFolderBtn}
+          </button>
+        </div>
       </div>
 
       <div className="search-bar">
@@ -199,7 +214,7 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
       ) : loadFailed ? (
         <div className="history-error">
           <p role="alert">{t.historyLoadFailed}</p>
-          <button type="button" ref={retryButtonRef} className="secondary history-retry" onClick={retryHistory}>
+          <button type="button" ref={retryButtonRef} className="secondary history-retry" onClick={() => reloadHistory("retry")}>
             {t.retry}
           </button>
         </div>

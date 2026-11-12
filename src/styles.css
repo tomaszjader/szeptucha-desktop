@@ -934,8 +934,19 @@ select:focus {
 }
 .history-header {
   display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
   justify-content: space-between;
   align-items: flex-start;
+}
+.history-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.history-refresh[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: progress;
 }
 .search-bar {
   display: flex;

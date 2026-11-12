@@ -1,5 +1,6 @@
 export const translations = {
   pl: {
+    refreshHistory: "Odśwież",
     shortcutConflict: "Nagrywanie i korekta muszą mieć różne skróty. Zmień lub wyczyść jedną z kombinacji.",
     shortcutUnavailable: "Ten skrót nie działa: jest zajęty, zastrzeżony lub nieobsługiwany przez system. Wybierz inną kombinację i zapisz ustawienia.",
     correctionPasteFailed: "Nie udało się potwierdzić wklejenia. Sprawdź wynik w aplikacji docelowej.",
@@ -132,6 +133,7 @@ export const translations = {
     readingAudioLevel: "Poziom mikrofonu",
   },
   en: {
+    refreshHistory: "Refresh",
     shortcutConflict: "Recording and correction must use different shortcuts. Change or clear one of the combinations.",
     shortcutUnavailable: "This shortcut is unavailable: it is taken, reserved or unsupported by the system. Choose another combination and save settings.",
     correctionPasteFailed: "Could not confirm the paste. Check the result in the target application.",
@@ -264,6 +266,7 @@ export const translations = {
     readingAudioLevel: "Microphone level",
   },
   de: {
+    refreshHistory: "Aktualisieren",
     shortcutConflict: "Aufnahme und Korrektur müssen unterschiedliche Tastenkürzel verwenden. Ändere oder entferne eine der Kombinationen.",
     shortcutUnavailable: "Dieses Tastenkürzel ist belegt, reserviert oder wird vom System nicht unterstützt. Wähle eine andere Kombination und speichere die Einstellungen.",
     correctionPasteFailed: "Das Einfügen konnte nicht bestätigt werden. Prüfe das Ergebnis in der Zielanwendung.",
@@ -396,6 +399,7 @@ export const translations = {
     readingAudioLevel: "Mikrofonpegel",
   },
   ru: {
+    refreshHistory: "Обновить",
     shortcutConflict: "Для записи и исправления нужны разные сочетания клавиш. Измените или очистите одно из них.",
     shortcutUnavailable: "Это сочетание занято, зарезервировано или не поддерживается системой. Выберите другое сочетание и сохраните настройки.",
     correctionPasteFailed: "Не удалось подтвердить вставку. Проверьте результат в целевом приложении.",
