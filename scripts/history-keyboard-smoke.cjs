@@ -198,6 +198,71 @@ app.whenReady().then(async () => {
     await until(() => evaluate('document.querySelector(".search-bar input").value === "" && document.querySelectorAll(".note-open").length === 24'), "clearing search restores the first page");
     console.log("Packaged history query regression passed: separate pages, filename/body search, UI navigation, empty results and clearing search.");
 
+    // Refresh must detect external changes without remounting the History component.
+    const refresh = async () => {
+      await evaluate('document.querySelector(".history-refresh").focus()');
+      await key("Return");
+      await until(() => evaluate('document.querySelector(".history-container").getAttribute("aria-busy") === "false"'), "manual refresh completes");
+    };
+    assert.equal(await evaluate('document.querySelector(".history-refresh").textContent.trim()'), "Refresh");
+    const restoredName = "external-restored.txt";
+    const restoredPath = path.join(notes, restoredName);
+    const stagedPath = path.join(directory, restoredName);
+    fs.writeFileSync(stagedPath, "refresh-match-73 restored note.");
+    fs.renameSync(stagedPath, restoredPath);
+    assert.equal((await visibleNames()).includes(restoredName), false, "list is unchanged until requested refresh");
+    await refresh();
+    await until(async () => (await visibleNames()).includes(restoredName), "refresh loads an externally restored note");
+    assert.equal(await evaluate('document.activeElement.matches(".history-refresh")'), true, "keyboard focus returns to Refresh");
+
+    await evaluate('document.querySelector(".search-bar input").focus()');
+    await window.webContents.insertText("refresh-match-73");
+    await until(async () => {
+      const names = await visibleNames();
+      return names.length === 1 && names[0] === restoredName;
+    }, "filtered restored note");
+    const addedName = "external-added.txt";
+    fs.writeFileSync(path.join(notes, addedName), "refresh-match-73 new note.");
+    await refresh();
+    await until(async () => (await visibleNames()).length === 2, "refresh includes new matching notes");
+    assert.equal(await evaluate('document.querySelector(".search-bar input").value'), "refresh-match-73", "refresh preserves the query");
+    fs.writeFileSync(restoredPath, "This note no longer matches the query.");
+    await refresh();
+    await until(async () => {
+      const names = await visibleNames();
+      return names.length === 1 && names[0] === addedName;
+    }, "refresh observes an externally edited note");
+
+    await evaluate('document.querySelector(".search-bar input").focus(); document.querySelector(".search-bar input").select()');
+    await key("Backspace");
+    await until(() => evaluate('document.querySelectorAll(".note-open").length === 24'), "unfiltered history before page preservation check");
+    await evaluate('document.querySelectorAll(".history-pagination button")[1].click()');
+    await until(() => evaluate('document.querySelectorAll(".note-open").length === 8 && document.querySelector(".history-pagination span")?.textContent.includes("2 / 2")'), "page two before refresh");
+    await refresh();
+    assert.equal(await evaluate('document.querySelector(".history-pagination span").textContent.includes("2 / 2")'), true, "refresh preserves a valid page");
+    for (const name of fixtureNames) fs.unlinkSync(path.join(notes, name));
+    await refresh();
+    await until(() => evaluate('document.querySelectorAll(".note-open").length === 3 && !document.querySelector(".history-pagination")'), "refresh clamps a page after external removal");
+    await delay(100);
+    assert.equal(await evaluate('document.activeElement.matches(".history-refresh")'), true, "page normalization does not lose refresh focus");
+    fs.unlinkSync(path.join(notes, addedName));
+    await refresh();
+    await until(async () => {
+      const names = await visibleNames();
+      return names.length === 2 && !names.includes(addedName);
+    }, "refresh removes externally deleted notes");
+
+    const unavailableFolder = `${notes}-refresh-offline`;
+    fs.renameSync(notes, unavailableFolder);
+    await refresh();
+    await until(hasError, "refresh reports a missing folder");
+    assert.equal(await evaluate('Boolean(document.querySelector(".history-empty"))'), false, "refresh failures are not empty history");
+    assert.equal(await evaluate('document.activeElement.matches(".history-refresh")'), true, "failed refresh preserves keyboard focus");
+    fs.renameSync(unavailableFolder, notes);
+    await refresh();
+    await until(() => evaluate('document.querySelectorAll(".note-open").length === 2 && !document.querySelector(".history-error")'), "refresh recovers when the folder is restored");
+    console.log("Packaged manual history refresh passed: external additions/edits/removals, query/page preservation, page clamping, folder errors and recovery.");
+
     // Settings must report conflicts without overwriting the working configuration.
     await until(() => evaluate('window.szeptucha.getShortcutState().then(Boolean)'), "startup shortcut state");
     const originalSettingsFile = fs.readFileSync(path.join(directory, "settings.json"), "utf8");
