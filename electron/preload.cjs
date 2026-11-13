@@ -76,6 +76,8 @@ contextBridge.exposeInMainWorld("szeptucha", {
   setTheme: theme => ipcRenderer.send("theme:set", theme),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   getShortcutState: () => ipcRenderer.invoke("shortcuts:get"),
+  beginShortcutCapture: token => ipcRenderer.send("shortcuts:capture-begin", token),
+  endShortcutCapture: token => ipcRenderer.send("shortcuts:capture-end", token),
   onShortcutState: cb => {
     const listener = (_, state) => cb(state);
     ipcRenderer.on("shortcuts:state", listener);

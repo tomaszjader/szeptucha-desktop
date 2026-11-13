@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Keyboard, X } from "lucide-react";
 import { translations, type AppLanguage } from "../translations";
 
@@ -11,6 +11,32 @@ interface HotkeyInputProps {
 export const HotkeyInput: React.FC<HotkeyInputProps> = ({ value, onChange, lang }) => {
   const [isRecording, setIsRecording] = useState(false);
   const t = translations[lang];
+  const captureToken = useRef<string | null>(null);
+  const releaseCapture = useCallback(() => {
+    if (captureToken.current) window.szeptucha.endShortcutCapture(captureToken.current);
+    captureToken.current = null;
+  }, []);
+  const stopCapture = useCallback(() => {
+    releaseCapture();
+    setIsRecording(false);
+  }, [releaseCapture]);
+  const startCapture = () => {
+    if (!captureToken.current) {
+      captureToken.current = crypto.randomUUID();
+      window.szeptucha.beginShortcutCapture(captureToken.current);
+    }
+    setIsRecording(true);
+  };
+  useEffect(() => {
+    const hidden = () => { if (document.hidden) stopCapture(); };
+    window.addEventListener("blur", stopCapture);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      window.removeEventListener("blur", stopCapture);
+      document.removeEventListener("visibilitychange", hidden);
+      releaseCapture();
+    };
+  }, [releaseCapture, stopCapture]);
 
   const isMac = navigator.platform.toLowerCase().includes("mac");
   const displayValue = value
@@ -29,7 +55,12 @@ export const HotkeyInput: React.FC<HotkeyInputProps> = ({ value, onChange, lang 
     e.stopPropagation();
 
     if (e.key === "Escape") {
-      setIsRecording(false);
+      stopCapture();
+      return;
+    }
+    if (!captureToken.current) {
+      // After acceptance/cancellation, capture again only on an explicit action.
+      if (e.key === "Enter" || e.key === " ") startCapture();
       return;
     }
 
@@ -49,7 +80,7 @@ export const HotkeyInput: React.FC<HotkeyInputProps> = ({ value, onChange, lang 
 
       if (parts.length > 0) {
         onChange(parts.join("+"));
-        setIsRecording(false);
+        stopCapture();
       }
     }
   };
@@ -62,8 +93,9 @@ export const HotkeyInput: React.FC<HotkeyInputProps> = ({ value, onChange, lang 
           readOnly
           type="text"
           value={isRecording ? t.pressShortcutKeys : displayValue}
-          onFocus={() => setIsRecording(true)}
-          onBlur={() => setIsRecording(false)}
+          onFocus={startCapture}
+          onClick={startCapture}
+          onBlur={stopCapture}
           onKeyDown={handleKeyDown}
           title={t.clickToRecordShortcut}
           placeholder={t.pressShortcutKeys}
