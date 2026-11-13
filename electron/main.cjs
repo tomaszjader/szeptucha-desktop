@@ -41,6 +41,8 @@ const {
 const { correctTextWithApi, transcribeAudioWithApi } = require("./ai-api.cjs");
 const { createUpdater } = require("./updater.cjs");
 const { createShortcutManager } = require("./shortcuts.cjs");
+const { createShortcutCapture } = require("./shortcut-capture.cjs");
+const shortcutCapture = createShortcutCapture({ globalShortcut });
 const { createNoteFiles } = require("./note-files.cjs");
 const { createCorrectionController } = require("./correction-controller.cjs");
 const { createRecordingDrafts } = require("./recording-drafts.cjs");
@@ -188,6 +190,10 @@ function createWindow() {
       sandbox: false,
     },
   });
+  for (const event of ["blur", "hide"]) win.on(event, () => shortcutCapture.reset());
+  for (const event of ["did-start-loading", "render-process-gone", "destroyed"]) {
+    win.webContents.on(event, () => shortcutCapture.reset());
+  }
   if (process.env.VITE_DEV_SERVER_URL)
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
   else if (!app.isPackaged) win.loadURL("http://localhost:5173");
@@ -307,7 +313,7 @@ const shortcutManager = createShortcutManager({
   onState: state => win?.webContents.send("shortcuts:state", state),
 });
 function shortcuts() {
-  shortcutManager.apply(settings());
+  shortcutCapture.withRegistration(() => shortcutManager.apply(settings()));
 }
 
 function trayMenu() {
@@ -591,7 +597,7 @@ app.whenReady().then(async () => {
   shortcuts();
 });
 app.on("window-all-closed", () => {});
-app.on("before-quit", () => { app.isQuiting = true; whisperProcess?.dispose(); correction.dispose(); });
+app.on("before-quit", () => { shortcutCapture.reset(); app.isQuiting = true; whisperProcess?.dispose(); correction.dispose(); });
 app.on("will-quit", () => globalShortcut.unregisterAll());
 ipcMain.on("ocr:show", (event) => { if (event.sender === win?.webContents) ocr.show(); });
 ipcMain.on("theme:set", (_, theme) => {
@@ -603,6 +609,12 @@ ipcMain.on("theme:set", (_, theme) => {
 });
 ipcMain.handle("settings:get", () => settings());
 ipcMain.handle("shortcuts:get", () => shortcutManager.getState());
+ipcMain.on("shortcuts:capture-begin", (event, token) => {
+  if (event.sender === win?.webContents && win.isFocused()) shortcutCapture.begin(token);
+});
+ipcMain.on("shortcuts:capture-end", (event, token) => {
+  if (event.sender === win?.webContents) shortcutCapture.end(token);
+});
 ipcMain.handle("settings:save", (_, s) => {
   const next = sanitizeSettings(s);
   shortcutManager.validate(next);

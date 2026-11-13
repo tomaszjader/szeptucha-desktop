@@ -28,6 +28,8 @@ interface Window {
     setTheme(theme: 'light' | 'dark'): void;
     getSettings(): Promise<Settings>;
     getShortcutState(): Promise<ShortcutState | null>;
+    beginShortcutCapture(token: string): void;
+    endShortcutCapture(token: string): void;
     onShortcutState(cb: (state: ShortcutState) => void): () => void;
     saveSettings(s: Settings): Promise<Settings>;
     chooseFolder(): Promise<string | null>;
