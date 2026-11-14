@@ -1,5 +1,6 @@
 export const translations = {
   pl: {
+    plainTextFormat: "Tekst (.txt)",
     refreshHistory: "Odśwież",
     shortcutConflict: "Nagrywanie i korekta muszą mieć różne skróty. Zmień lub wyczyść jedną z kombinacji.",
     shortcutUnavailable: "Ten skrót nie działa: jest zajęty, zastrzeżony lub nieobsługiwany przez system. Wybierz inną kombinację i zapisz ustawienia.",
@@ -133,6 +134,7 @@ export const translations = {
     readingAudioLevel: "Poziom mikrofonu",
   },
   en: {
+    plainTextFormat: "Plain text (.txt)",
     refreshHistory: "Refresh",
     shortcutConflict: "Recording and correction must use different shortcuts. Change or clear one of the combinations.",
     shortcutUnavailable: "This shortcut is unavailable: it is taken, reserved or unsupported by the system. Choose another combination and save settings.",
@@ -266,6 +268,7 @@ export const translations = {
     readingAudioLevel: "Microphone level",
   },
   de: {
+    plainTextFormat: "Text (.txt)",
     refreshHistory: "Aktualisieren",
     shortcutConflict: "Aufnahme und Korrektur müssen unterschiedliche Tastenkürzel verwenden. Ändere oder entferne eine der Kombinationen.",
     shortcutUnavailable: "Dieses Tastenkürzel ist belegt, reserviert oder wird vom System nicht unterstützt. Wähle eine andere Kombination und speichere die Einstellungen.",
@@ -399,6 +402,7 @@ export const translations = {
     readingAudioLevel: "Mikrofonpegel",
   },
   ru: {
+    plainTextFormat: "Текст (.txt)",
     refreshHistory: "Обновить",
     shortcutConflict: "Для записи и исправления нужны разные сочетания клавиш. Измените или очистите одно из них.",
     shortcutUnavailable: "Это сочетание занято, зарезервировано или не поддерживается системой. Выберите другое сочетание и сохраните настройки.",

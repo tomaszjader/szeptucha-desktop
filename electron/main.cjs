@@ -391,12 +391,7 @@ async function correctText() {
   const lang = getLang(s);
   const t = mainTranslations[lang] || mainTranslations.en;
   if (s.provider === "local") {
-    const message =
-      lang === "pl"
-        ? "Lokalny silnik nie obsługuje jeszcze korekty tekstu"
-        : lang === "de"
-          ? "Das lokale Modul unterstützt die Textkorrektur noch nicht"
-          : "The local engine does not support text correction yet";
+    const message = t.statusLocalCorrectionUnavailable;
     status("error", message);
     return { ok: false, message };
   }
