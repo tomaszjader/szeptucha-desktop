@@ -1,5 +1,6 @@
 const mainTranslations = {
   pl: {
+    statusLocalCorrectionUnavailable: "Lokalny silnik nie obsługuje jeszcze korekty tekstu.",
     correctionPasteFailed: "Nie udało się potwierdzić wklejenia. Sprawdź wynik w aplikacji docelowej.",
     correctingText: "Poprawiam tekst…",
     cancelCorrection: "Anuluj korektę",
@@ -61,6 +62,7 @@ const mainTranslations = {
     trayExit: "Zakończ",
   },
   en: {
+    statusLocalCorrectionUnavailable: "The local engine does not support text correction yet.",
     correctionPasteFailed: "Could not confirm the paste. Check the result in the target application.",
     correctingText: "Correcting text…",
     cancelCorrection: "Cancel correction",
@@ -122,6 +124,7 @@ const mainTranslations = {
     trayExit: "Exit",
   },
   de: {
+    statusLocalCorrectionUnavailable: "Das lokale Modul unterstützt die Textkorrektur noch nicht.",
     correctionPasteFailed: "Das Einfügen konnte nicht bestätigt werden. Prüfe das Ergebnis in der Zielanwendung.",
     correctingText: "Text wird korrigiert…",
     cancelCorrection: "Korrektur abbrechen",
@@ -183,6 +186,7 @@ const mainTranslations = {
     trayExit: "Beenden",
   },
   ru: {
+    statusLocalCorrectionUnavailable: "Локальный движок пока не поддерживает исправление текста.",
     correctionPasteFailed: "Не удалось подтвердить вставку. Проверьте результат в целевом приложении.",
     correctingText: "Исправление текста…",
     cancelCorrection: "Отменить исправление",

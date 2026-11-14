@@ -85,7 +85,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ s, setS, onSave, isS
             }
           >
             <option value="md">Markdown (.md)</option>
-            <option value="txt">Tekst (.txt)</option>
+            <option value="txt">{t.plainTextFormat}</option>
             <option value="json">JSON (.json)</option>
           </select>
         </label>
