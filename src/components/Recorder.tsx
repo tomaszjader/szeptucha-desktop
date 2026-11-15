@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { LoaderCircle, Mic, StopCircle, Sparkles, Keyboard, FolderOpen } from "lucide-react";
 import { translations, type AppLanguage } from "../translations";
+import { formatShortcut } from "../utils/formatShortcut.mjs";
 
 function friendlyRecordingError(error: string | null, t: (typeof translations)[AppLanguage]) {
   const raw = error || "";
@@ -191,7 +192,7 @@ export const Recorder: React.FC<RecorderProps> = ({
           </div>
         )}
 
-        <kbd>{(s.recordHotkey || "Ctrl+Shift+R").replace("CommandOrControl", "Ctrl")}</kbd>
+        <kbd>{formatShortcut(s.recordHotkey || "Ctrl+Shift+R")}</kbd>
       </div>
 
       <div className="grid">
@@ -208,7 +209,7 @@ export const Recorder: React.FC<RecorderProps> = ({
           <div className="shortcut">
             <Keyboard />
             <span>{t.globalShortcut}</span>
-            <kbd>{(s.correctHotkey || "Ctrl+Q").replace("CommandOrControl", "Ctrl")}</kbd>
+            <kbd>{formatShortcut(s.correctHotkey || "Ctrl+Q")}</kbd>
           </div>
           <button className="secondary" onClick={onCorrectText} disabled={correctionState.busy} aria-busy={correctionState.busy}>
             {correctionState.busy ? t.correctingText : t.correctSelectedText}
