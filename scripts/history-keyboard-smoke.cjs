@@ -323,7 +323,14 @@ app.whenReady().then(async () => {
     assert.equal(shortcutState.recording.status, "unavailable");
     assert.equal(shortcutState.correction.status, "disabled");
     assert.equal(await evaluate('Boolean(document.querySelector(".settings-save-error"))'), false, "unavailable shortcuts still allow saving other settings");
+    const windowsShortcutDisplay = await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].value');
+    assert.equal(windowsShortcutDisplay, "Win+Shift+Q");
     await evaluate('document.querySelectorAll("aside nav button")[0].click()');
+    await until(() => evaluate('document.querySelectorAll("kbd").length === 2'), "recording shortcut hints");
+    assert.equal(await evaluate('document.querySelector("kbd").textContent'), windowsShortcutDisplay,
+      "recording and settings display the Windows key consistently");
+    assert.equal((await evaluate('window.szeptucha.getSettings()')).recordHotkey, "Super+Shift+Q",
+      "display formatting must preserve the stored Electron accelerator");
     await evaluate('document.querySelectorAll("aside nav button")[3].click()');
     await until(() => evaluate('Boolean(document.querySelector(".shortcut-warning"))'), "warning survives leaving settings");
     await evaluate('document.querySelectorAll(".hotkey-recorder")[0].querySelector(".clear-btn").click()');

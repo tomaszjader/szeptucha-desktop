@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Keyboard, X } from "lucide-react";
 import { translations, type AppLanguage } from "../translations";
+import { formatShortcut } from "../utils/formatShortcut.mjs";
 
 interface HotkeyInputProps {
   value: string;
@@ -38,14 +39,7 @@ export const HotkeyInput: React.FC<HotkeyInputProps> = ({ value, onChange, lang 
     };
   }, [releaseCapture, stopCapture]);
 
-  const isMac = navigator.platform.toLowerCase().includes("mac");
-  const displayValue = value
-    ? value
-        .replace("CommandOrControl", isMac ? "⌘" : "Ctrl")
-        .replace("Super", isMac ? "⌘" : "Win")
-        .replace("Control", "Ctrl")
-        .replace("Key", "")
-    : t.pressShortcutKeys;
+  const displayValue = value ? formatShortcut(value) : t.pressShortcutKeys;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // Leave plain Tab/Shift+Tab to the browser; blur ends capture after focus moves.
