@@ -98,12 +98,14 @@ export const HotkeyInput: React.FC<HotkeyInputProps> = ({ value, onChange, lang 
           <button
             type="button"
             className="clear-btn"
+            aria-label={t.clearShortcut}
+            title={t.clearShortcut}
             onClick={(e) => {
               e.stopPropagation();
               onChange("");
             }}
           >
-            <X size={14} />
+            <X size={14} aria-hidden="true" />
           </button>
         )}
       </div>
