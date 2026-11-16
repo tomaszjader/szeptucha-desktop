@@ -1,5 +1,6 @@
 export const translations = {
   pl: {
+    clearShortcut: "Wyczyść skrót",
     plainTextFormat: "Tekst (.txt)",
     refreshHistory: "Odśwież",
     shortcutConflict: "Nagrywanie i korekta muszą mieć różne skróty. Zmień lub wyczyść jedną z kombinacji.",
@@ -134,6 +135,7 @@ export const translations = {
     readingAudioLevel: "Poziom mikrofonu",
   },
   en: {
+    clearShortcut: "Clear shortcut",
     plainTextFormat: "Plain text (.txt)",
     refreshHistory: "Refresh",
     shortcutConflict: "Recording and correction must use different shortcuts. Change or clear one of the combinations.",
@@ -268,6 +270,7 @@ export const translations = {
     readingAudioLevel: "Microphone level",
   },
   de: {
+    clearShortcut: "Tastenkürzel löschen",
     plainTextFormat: "Text (.txt)",
     refreshHistory: "Aktualisieren",
     shortcutConflict: "Aufnahme und Korrektur müssen unterschiedliche Tastenkürzel verwenden. Ändere oder entferne eine der Kombinationen.",
@@ -402,6 +405,7 @@ export const translations = {
     readingAudioLevel: "Mikrofonpegel",
   },
   ru: {
+    clearShortcut: "Очистить сочетание клавиш",
     plainTextFormat: "Текст (.txt)",
     refreshHistory: "Обновить",
     shortcutConflict: "Для записи и исправления нужны разные сочетания клавиш. Измените или очистите одно из них.",
