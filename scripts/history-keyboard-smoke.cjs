@@ -264,7 +264,7 @@ app.whenReady().then(async () => {
     console.log("Packaged manual history refresh passed: external additions/edits/removals, query/page preservation, page clamping, folder errors and recovery.");
 
     // A stale list entry must be removed when the file was deleted outside the app.
-    await evaluate('window.confirmBeforeMissingNoteTest = window.confirm; window.confirm = () => true');
+    await evaluate('window.confirmBeforeMissingNoteTest = window.confirm; void (window.confirm = () => true)');
     const missingName = "externally-deleted.txt";
     const missingPath = path.join(notes, missingName);
     fs.writeFileSync(missingPath, "Disposable stale note.");
