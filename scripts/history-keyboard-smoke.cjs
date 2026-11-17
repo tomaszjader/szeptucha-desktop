@@ -263,6 +263,47 @@ app.whenReady().then(async () => {
     await until(() => evaluate('document.querySelectorAll(".note-open").length === 2 && !document.querySelector(".history-error")'), "refresh recovers when the folder is restored");
     console.log("Packaged manual history refresh passed: external additions/edits/removals, query/page preservation, page clamping, folder errors and recovery.");
 
+    // A stale list entry must be removed when the file was deleted outside the app.
+    await evaluate('window.confirmBeforeMissingNoteTest = window.confirm; window.confirm = () => true');
+    const missingName = "externally-deleted.txt";
+    const missingPath = path.join(notes, missingName);
+    fs.writeFileSync(missingPath, "Disposable stale note.");
+    await refresh();
+    await until(async () => (await visibleNames()).includes(missingName), "note appears before external deletion");
+    fs.unlinkSync(missingPath);
+    await evaluate(`Array.from(document.querySelectorAll(".note-open")).find(button => button.getAttribute("aria-label") === ${JSON.stringify(missingName)}).closest(".note-card").querySelector(".danger").click()`);
+    await until(() => evaluate('document.querySelector(".toast")?.textContent.includes("The note file could not be found. Refreshing history.")'), "missing note has its own message");
+    await until(async () => {
+      const names = await visibleNames();
+      return names.length === 2 && !names.includes(missingName);
+    }, "missing note is removed from the list without manual refresh");
+
+    // Removing the sole stale entry on page two also closes its preview and returns to page one.
+    for (let i = 0; i < 22; i += 1) fs.writeFileSync(path.join(notes, `stale-page-${i}.txt`), `Disposable page fixture ${i}.`);
+    const lastName = "last-stale-note.txt";
+    const lastPath = path.join(notes, lastName);
+    fs.writeFileSync(lastPath, "Disposable stale preview.");
+    const oldest = new Date(Date.UTC(2000, 0, 1));
+    fs.utimesSync(lastPath, oldest, oldest);
+    await refresh();
+    await until(() => evaluate('Boolean(document.querySelector(".history-pagination"))'), "two history pages");
+    await evaluate('document.querySelectorAll(".history-pagination button")[1].click()');
+    await until(async () => {
+      const names = await visibleNames();
+      return names.length === 1 && names[0] === lastName;
+    }, "sole entry on page two");
+    await evaluate('document.querySelector(".note-open").click()');
+    await until(() => evaluate('document.querySelector(".note-modal-body pre")?.textContent === "Disposable stale preview."'), "preview before external deletion");
+    fs.unlinkSync(lastPath);
+    // Programmatically dispatch the existing delete action while selected to exercise preview cleanup.
+    await evaluate('document.querySelector(".note-card .danger").click()');
+    await until(() => evaluate('!document.querySelector("dialog") && document.querySelectorAll(".note-open").length === 24 && !document.querySelector(".history-pagination")'),
+      "stale preview closes and the now-invalid page is corrected");
+    assert.equal(await evaluate('document.querySelector(".toast").textContent.includes("could not be found")'), true);
+    assert.equal(fs.readdirSync(notes).length, 24, "other notes remain untouched");
+    await evaluate('window.confirm = window.confirmBeforeMissingNoteTest; delete window.confirmBeforeMissingNoteTest');
+    console.log("Packaged missing note recovery passed: distinct message, automatic list refresh, preview cleanup and page correction.");
+
     // Settings must report conflicts without overwriting the working configuration.
     await until(() => evaluate('window.szeptucha.getShortcutState().then(Boolean)'), "startup shortcut state");
     const originalSettingsFile = fs.readFileSync(path.join(directory, "settings.json"), "utf8");

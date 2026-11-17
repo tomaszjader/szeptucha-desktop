@@ -111,12 +111,10 @@ export const History: React.FC<HistoryProps> = ({ lang, showToast, onOpenFolder 
     if (window.confirm(t.deleteConfirm)) {
       try {
         const ok = await window.szeptucha.deleteNote(note.id);
-        if (ok) {
-          showToast(t.noteDeleted);
-          if (selectedNote?.id === note.id) closeSelectedNote();
-          if (notes.length === 1 && page > 0) setPage(page - 1);
-          setReload((value) => value + 1);
-        }
+        showToast(ok ? t.noteDeleted : t.noteAlreadyMissing);
+        if (selectedNote?.id === note.id) closeSelectedNote();
+        if (notes.length === 1 && page > 0) setPage(page - 1);
+        setReload((value) => value + 1);
       } catch {
         showToast(t.noteDeleteFailed);
       }

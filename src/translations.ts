@@ -1,5 +1,6 @@
 export const translations = {
   pl: {
+    noteAlreadyMissing: "Nie znaleziono pliku notatki. Odświeżam historię.",
     clearShortcut: "Wyczyść skrót",
     plainTextFormat: "Tekst (.txt)",
     refreshHistory: "Odśwież",
@@ -135,6 +136,7 @@ export const translations = {
     readingAudioLevel: "Poziom mikrofonu",
   },
   en: {
+    noteAlreadyMissing: "The note file could not be found. Refreshing history.",
     clearShortcut: "Clear shortcut",
     plainTextFormat: "Plain text (.txt)",
     refreshHistory: "Refresh",
@@ -270,6 +272,7 @@ export const translations = {
     readingAudioLevel: "Microphone level",
   },
   de: {
+    noteAlreadyMissing: "Die Notizdatei wurde nicht gefunden. Der Verlauf wird aktualisiert.",
     clearShortcut: "Tastenkürzel löschen",
     plainTextFormat: "Text (.txt)",
     refreshHistory: "Aktualisieren",
@@ -405,6 +408,7 @@ export const translations = {
     readingAudioLevel: "Mikrofonpegel",
   },
   ru: {
+    noteAlreadyMissing: "Файл заметки не найден. Обновляем историю.",
     clearShortcut: "Очистить сочетание клавиш",
     plainTextFormat: "Текст (.txt)",
     refreshHistory: "Обновить",
