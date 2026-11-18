@@ -29,4 +29,4 @@ jobs:
       # Use the committed lockfile without installing or running package scripts.
       # Include build tools; moderate/low findings remain visible in the report.
       - name: Audit dependencies for high and critical vulnerabilities
-        run: npm audit --package-lock-only --include=dev --include=optional --audit-level=high
+        run: node scripts/audit-dependencies.cjs
