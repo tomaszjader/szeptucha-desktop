@@ -192,7 +192,7 @@ export const Recorder: React.FC<RecorderProps> = ({
           </div>
         )}
 
-        <kbd>{formatShortcut(s.recordHotkey || "Ctrl+Shift+R")}</kbd>
+        <kbd>{s.recordHotkey ? formatShortcut(s.recordHotkey) : t.shortcutDisabled}</kbd>
       </div>
 
       <div className="grid">
@@ -209,7 +209,7 @@ export const Recorder: React.FC<RecorderProps> = ({
           <div className="shortcut">
             <Keyboard />
             <span>{t.globalShortcut}</span>
-            <kbd>{formatShortcut(s.correctHotkey || "Ctrl+Q")}</kbd>
+            <kbd>{s.correctHotkey ? formatShortcut(s.correctHotkey) : t.shortcutDisabled}</kbd>
           </div>
           <button className="secondary" onClick={onCorrectText} disabled={correctionState.busy} aria-busy={correctionState.busy}>
             {correctionState.busy ? t.correctingText : t.correctSelectedText}
