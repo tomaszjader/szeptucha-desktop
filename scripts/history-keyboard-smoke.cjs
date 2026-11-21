@@ -382,13 +382,13 @@ app.whenReady().then(async () => {
 
     // Exercise the renderer mapping and real Electron registration in the packaged app.
     for (const [keyCode, expected] of [["Up", "Up"], ["Down", "Down"], ["Left", "Left"], ["Right", "Right"]]) {
-      await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].focus()');
+      await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].click()');
       await key(keyCode, ["control", "alt", "shift"]);
       assert.equal(await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].value'), `Ctrl+Alt+Shift+${expected}`);
       await evaluate('document.querySelector("#settings > button.primary").click()');
       await until(() => evaluate(`window.szeptucha.getShortcutState().then(s => s.recording.accelerator === "Control+Alt+Shift+${expected}" && s.recording.status === "active")`), `registered ${expected} shortcut`);
     }
-    await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].focus()');
+    await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].click()');
     // Composition/dead keys must leave capture open and preserve the selected value.
     await evaluate('void document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Dead", bubbles: true, cancelable: true }))');
     assert.equal(await evaluate('document.querySelectorAll(".hotkey-recorder")[0].classList.contains("active")'), true);
