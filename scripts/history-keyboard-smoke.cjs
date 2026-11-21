@@ -379,6 +379,28 @@ app.whenReady().then(async () => {
     await until(() => evaluate('window.szeptucha.getShortcutState().then(s => s.recording.status === "disabled" && s.correction.status === "disabled")'), "disabled shortcuts recover cleanly");
     assert.equal(await evaluate('Boolean(document.querySelector(".shortcut-warning"))'), false);
     console.log("Packaged shortcut settings passed: duplicate rejection, unchanged configuration, Win modifier capture, unavailable warning and disabled recovery.");
+
+    // Exercise the renderer mapping and real Electron registration in the packaged app.
+    for (const [keyCode, expected] of [["Up", "Up"], ["Down", "Down"], ["Left", "Left"], ["Right", "Right"]]) {
+      await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].focus(); document.querySelectorAll(".hotkey-recorder input")[0].click()');
+      await key(keyCode, ["control", "alt", "shift"]);
+      assert.equal(await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].value'), `Ctrl+Alt+Shift+${expected}`);
+      await evaluate('document.querySelector("#settings > button.primary").click()');
+      await until(() => evaluate(`window.szeptucha.getShortcutState().then(s => s.recording.accelerator === "Control+Alt+Shift+${expected}" && s.recording.status === "active")`), `registered ${expected} shortcut`);
+    }
+    await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].focus(); document.querySelectorAll(".hotkey-recorder input")[0].click()');
+    // Composition/dead keys must leave capture open and preserve the selected value.
+    await evaluate('void document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Dead", bubbles: true, cancelable: true }))');
+    assert.equal(await evaluate('document.querySelectorAll(".hotkey-recorder")[0].classList.contains("active")'), true);
+    await evaluate('void document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "+", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }))');
+    assert.equal(await evaluate('document.querySelectorAll(".hotkey-recorder input")[0].value'), "Ctrl+Alt+Plus");
+    await evaluate('document.querySelector("#settings > button.primary").click()');
+    await until(() => evaluate('window.szeptucha.getShortcutState().then(s => s.recording.accelerator === "Control+Alt+Plus" && s.recording.status === "active")'), "registered Plus shortcut");
+    assert.equal((await evaluate('window.szeptucha.getSettings()')).recordHotkey, "Control+Alt+Plus");
+    await evaluate('document.querySelectorAll(".hotkey-recorder")[0].querySelector(".clear-btn").click()');
+    await evaluate('document.querySelector("#settings > button.primary").click()');
+    await until(() => evaluate('window.szeptucha.getShortcutState().then(s => s.recording.status === "disabled")'), "special key test cleanup");
+    console.log("Packaged special shortcut keys passed: all arrows and Plus register, dead keys leave capture open.");
   } catch (error) {
     console.error(error);
     exitCode = 1;

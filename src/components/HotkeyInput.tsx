@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Keyboard, X } from "lucide-react";
 import { translations, type AppLanguage } from "../translations";
 import { formatShortcut } from "../utils/formatShortcut.mjs";
+import { shortcutKey } from "../utils/shortcutKey.mjs";
 
 interface HotkeyInputProps {
   value: string;
@@ -65,17 +66,11 @@ export const HotkeyInput: React.FC<HotkeyInputProps> = ({ value, onChange, lang 
     if (e.altKey) parts.push("Alt");
     if (e.shiftKey) parts.push("Shift");
 
-    const ignoreKeys = ["Control", "Shift", "Alt", "Meta", "Escape"];
-
-    if (!ignoreKeys.includes(e.key)) {
-      let keyName = e.key.toUpperCase();
-      if (keyName === " ") keyName = "Space";
+    const keyName = shortcutKey(e.key);
+    if (keyName) {
       parts.push(keyName);
-
-      if (parts.length > 0) {
-        onChange(parts.join("+"));
-        stopCapture();
-      }
+      onChange(parts.join("+"));
+      stopCapture();
     }
   };
 
